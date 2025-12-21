@@ -6,6 +6,7 @@ import Dashboard from "./src/components/Dashboard";
 import OnboardingChat from "./src/components/OnboardingChat";
 import ReportView from "./src/components/ReportView";
 import { Agenda, DailyTask, AgendaType } from "./src/types";
+import { ThemeProvider } from "./src/context/ThemeContext";
 import {
   createInitialTasks,
   recalculateNumericTasks,
@@ -15,6 +16,14 @@ import {
 import { StatusBar } from "expo-status-bar";
 
 export default function App() {
+  return (
+    <ThemeProvider>
+      <MainApp />
+    </ThemeProvider>
+  );
+}
+
+function MainApp() {
   const [agendas, setAgendas] = useState<Agenda[]>([]);
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [view, setView] = useState<"dashboard" | "onboarding" | "report">(
