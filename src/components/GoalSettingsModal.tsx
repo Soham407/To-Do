@@ -1,41 +1,80 @@
-import React from "react";
-import { Modal, View, Text, Button, StyleSheet, Alert } from "react-native";
-import { Agenda } from "../types";
+import React, { useState, useEffect } from "react";
+import {
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  TouchableWithoutFeedback,
+} from "react-native";
+import { X, Trash2, Save } from "lucide-react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  ZoomIn,
+  ZoomOut,
+} from "react-native-reanimated";
+import { Agenda, AgendaType } from "../types";
+import { MD3Colors } from "../theme";
 
-interface Props {
+interface GoalSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  agenda: Agenda | null; // Changed to accept explicit null
-  onUpdateAgenda: (agenda: Agenda) => void;
-  onDeleteAgenda: (agendaId: string) => void;
+  agenda: Agenda | null; // Nullable to handle initial render
+  onUpdateAgenda: (id: string, updates: Partial<Agenda>) => void;
+  onDeleteAgenda: (id: string) => void;
 }
 
-const GoalSettingsModal: React.FC<Props> = ({
+const GoalSettingsModal: React.FC<GoalSettingsModalProps> = ({
   isOpen,
   onClose,
   agenda,
-  onUpdateAgenda, // Currently unused in this stub implementation, but part of the interface
+  onUpdateAgenda,
   onDeleteAgenda,
 }) => {
-  if (!isOpen) return null;
+  const [title, setTitle] = useState("");
+  const [target, setTarget] = useState("");
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+  useEffect(() => {
+    if (agenda) {
+      setTitle(agenda.title);
+      setTarget(
+        agenda.totalTarget
+          ? Math.ceil(agenda.totalTarget / 30).toString()
+          : agenda.targetVal
+          ? agenda.targetVal.toString()
+          : ""
+      );
+      setIsConfirmingDelete(false);
+    }
+  }, [agenda]);
+
+  if (!isOpen || !agenda) return null;
+
+  const isNumeric = agenda.type === AgendaType.NUMERIC;
+
+  const handleSave = () => {
+    const updates: Partial<Agenda> = { title };
+    if (isNumeric && target) {
+      // Assuming target is Daily Target
+      updates.targetVal = parseInt(target);
+      // If totalTarget exists, update it too (approx)
+      if (agenda.totalTarget) {
+        updates.totalTarget = parseInt(target) * 30;
+      }
+    }
+    onUpdateAgenda(agenda.id, updates);
+    onClose();
+  };
 
   const handleDelete = () => {
-    if (agenda) {
-      Alert.alert(
-        "Delete Goal",
-        `Are you sure you want to delete "${agenda.title}"?`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: () => {
-              onDeleteAgenda(agenda.id);
-              onClose();
-            },
-          },
-        ]
-      );
+    if (isConfirmingDelete) {
+      onDeleteAgenda(agenda.id);
+      onClose();
+    } else {
+      setIsConfirmingDelete(true);
     }
   };
 
@@ -43,73 +82,221 @@ const GoalSettingsModal: React.FC<Props> = ({
     <Modal
       visible={isOpen}
       transparent
-      animationType="fade"
+      animationType="none" // We handle animation with Reanimated
       onRequestClose={onClose}
     >
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
-          <Text style={styles.header}>Goal Settings</Text>
-
-          {agenda ? (
-            <View style={styles.body}>
-              <Text style={styles.label}>Goal Name: {agenda.title}</Text>
-              <Text style={styles.label}>Type: {agenda.type}</Text>
-              <Text style={styles.label}>
-                Buffer Tokens: {agenda.bufferTokens}
-              </Text>
-
-              <View style={styles.actionContainer}>
-                <Button
-                  title="Delete Goal"
-                  onPress={handleDelete}
-                  color="#FF3B30"
-                />
+      <TouchableWithoutFeedback onPress={onClose}>
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(200)}
+          style={styles.overlay}
+        >
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <Animated.View
+              entering={ZoomIn.duration(300).springify()}
+              exiting={ZoomOut.duration(200)}
+              style={styles.modal}
+            >
+              <View style={styles.header}>
+                <Text style={styles.title}>Goal Settings</Text>
+                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                  <X size={20} color={MD3Colors.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
-            </View>
-          ) : (
-            <Text>No agenda details available.</Text>
-          )}
 
-          <Button title="Close" onPress={onClose} />
-        </View>
-      </View>
+              <View style={styles.content}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Goal Name</Text>
+                  <TextInput
+                    value={title}
+                    onChangeText={setTitle}
+                    style={styles.input}
+                    placeholderTextColor={MD3Colors.outline}
+                  />
+                </View>
+
+                {isNumeric && (
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>
+                      Daily Target ({agenda.unit})
+                    </Text>
+                    <TextInput
+                      value={target}
+                      onChangeText={setTarget}
+                      keyboardType="numeric"
+                      style={styles.input}
+                      placeholderTextColor={MD3Colors.outline}
+                    />
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  onPress={handleSave}
+                  style={styles.saveBtn}
+                  activeOpacity={0.8}
+                >
+                  <Save size={18} color={MD3Colors.onPrimary} />
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+
+                {!isConfirmingDelete ? (
+                  <TouchableOpacity
+                    onPress={handleDelete}
+                    style={styles.deleteBtn}
+                  >
+                    <Trash2 size={18} color={MD3Colors.error} />
+                    <Text style={styles.deleteBtnText}>Delete Goal</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Animated.View
+                    entering={FadeIn.duration(200)}
+                    style={styles.confirmContainer}
+                  >
+                    <TouchableOpacity
+                      onPress={() => setIsConfirmingDelete(false)}
+                      style={styles.cancelBtn}
+                    >
+                      <Text style={styles.cancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleDelete}
+                      style={styles.confirmDeleteBtn}
+                    >
+                      <Text style={styles.confirmDeleteText}>Confirm</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
+                )}
+              </View>
+            </Animated.View>
+          </TouchableWithoutFeedback>
+        </Animated.View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  centeredView: {
+  overlay: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  modalView: {
-    width: "80%",
-    backgroundColor: "white",
-    borderRadius: 20,
     padding: 20,
-    alignItems: "center",
-    elevation: 5,
+  },
+  modal: {
+    backgroundColor: MD3Colors.surface,
+    borderRadius: 28,
+    padding: 24,
+    width: "100%",
+    maxWidth: 340,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   header: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
   },
-  body: {
-    width: "100%",
-    marginBottom: 20,
+  title: {
+    fontSize: 22,
+    color: MD3Colors.onSurface,
+    fontWeight: "400", // M3 prefers simpler weights for headlines
+  },
+  closeBtn: {
+    padding: 8,
+    backgroundColor: MD3Colors.surfaceContainerHighest,
+    borderRadius: 20,
+  },
+  content: {
+    gap: 16,
+  },
+  inputContainer: {
+    backgroundColor: MD3Colors.surfaceContainerHighest,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: MD3Colors.outline,
   },
   label: {
-    fontSize: 16,
-    marginBottom: 10,
+    fontSize: 12,
+    color: MD3Colors.primary,
+    fontWeight: "500",
   },
-  actionContainer: {
-    marginTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-    paddingTop: 10,
+  input: {
+    fontSize: 16,
+    color: MD3Colors.onSurface,
+    paddingVertical: 4,
+    height: 48,
+  },
+  saveBtn: {
+    backgroundColor: MD3Colors.primary,
+    borderRadius: 100, // Fully rounded
+    paddingVertical: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+    elevation: 2,
+  },
+  saveBtnText: {
+    color: MD3Colors.onPrimary,
+    fontWeight: "500",
+    fontSize: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: MD3Colors.outline + "33", // Low opacity outline
+    marginVertical: 4,
+  },
+  deleteBtn: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 12,
+    gap: 8,
+    opacity: 0.8,
+  },
+  deleteBtnText: {
+    color: MD3Colors.error,
+    fontWeight: "500",
+    fontSize: 16,
+  },
+  confirmContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: MD3Colors.surfaceVariant,
+    borderRadius: 100,
+    alignItems: "center",
+  },
+  cancelBtnText: {
+    color: MD3Colors.onSurfaceVariant,
+    fontWeight: "500",
+  },
+  confirmDeleteBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: MD3Colors.error,
+    borderRadius: 100,
+    alignItems: "center",
+    elevation: 2,
+  },
+  confirmDeleteText: {
+    color: MD3Colors.onError,
+    fontWeight: "500",
   },
 });
 

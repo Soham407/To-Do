@@ -377,7 +377,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         isOpen={!!settingsAgenda}
         onClose={() => setSettingsAgenda(null)}
         agenda={settingsAgenda}
-        onUpdateAgenda={(updated) => onUpdateAgenda(updated.id, updated)}
+        onUpdateAgenda={onUpdateAgenda}
         onDeleteAgenda={onDeleteAgenda}
       />
 
