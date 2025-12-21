@@ -13,7 +13,7 @@ interface OnboardingChatProps {
 const BOT_USER: User = {
   _id: 2,
   name: "Goal Coach",
-  avatar: require("../assets/bot-avatar.png"), // Use a local asset
+  avatar: "https://placeimg.com/140/140/any",
 };
 
 const OnboardingChat: React.FC<OnboardingChatProps> = ({

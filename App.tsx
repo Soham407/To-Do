@@ -66,12 +66,14 @@ export default function App() {
 
   const handleAgendaCreated = (newAgenda: Agenda) => {
     const initialTasks = createInitialTasks(newAgenda);
-    setAgendas((prev) => [...prev, newAgenda]);
+    setAgendas((prev) => {
+      const wasEmpty = prev.length === 0;
+      const updated = [...prev, newAgenda];
+      if (wasEmpty) setIsNewUser(true);
+      return updated;
+    });
     setTasks((prev) => [...prev, ...initialTasks]);
 
-    if (agendas.length === 0) {
-      setIsNewUser(true);
-    }
     setView("dashboard");
   };
 
@@ -132,15 +134,15 @@ export default function App() {
     }
   };
 
+  // Handle view transition when agendas become empty
+  useEffect(() => {
+    if (!loading && agendas.length === 0) {
+      setView("onboarding");
+    }
+  }, [agendas, loading]);
+
   const handleDeleteAgenda = (id: string) => {
-    // setAgendas((prev) => prev.filter((a) => a.id !== id));
-    setAgendas((prev) => {
-      const remaining = prev.filter((a) => a.id !== id);
-      if (remaining.length === 0) {
-        setView("onboarding");
-      }
-      return remaining;
-    });
+    setAgendas((prev) => prev.filter((a) => a.id !== id));
   };
 
   if (loading) return null; // Or splash screen
