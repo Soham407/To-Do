@@ -172,10 +172,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             />
           )}
           <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              onSettingsClick();
-            }}
+            onPress={onSettingsClick}
             style={styles.settingsBtn}
           >
             <Settings
@@ -379,7 +376,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       <GoalSettingsModal
         isOpen={!!settingsAgenda}
         onClose={() => setSettingsAgenda(null)}
-        agenda={settingsAgenda} // Pass agenda here if real modal needs it
+        agenda={settingsAgenda}
+        onUpdateAgenda={(updated) => onUpdateAgenda(updated.id, updated)}
+        onDeleteAgenda={onDeleteAgenda}
       />
 
       <ProfileModal

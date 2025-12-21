@@ -13,7 +13,7 @@ interface OnboardingChatProps {
 const BOT_USER: User = {
   _id: 2,
   name: "Goal Coach",
-  avatar: "https://placeimg.com/140/140/any", // You might want a local asset or better URL
+  avatar: require("../assets/bot-avatar.png"), // Use a local asset
 };
 
 const OnboardingChat: React.FC<OnboardingChatProps> = ({
@@ -86,7 +86,7 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
         );
         break;
 
-      case "TYPE":
+      case "TYPE": {
         const isNumeric =
           input.toLowerCase().includes("numeric") ||
           input.toLowerCase().includes("pages") ||
@@ -114,6 +114,7 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
           );
         }
         break;
+      }
 
       case "TARGET":
         const target = parseInt(input.replace(/[^0-9]/g, ""));

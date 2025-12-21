@@ -58,12 +58,11 @@ export default function App() {
     if (agendas.length === 0 || loading) return;
 
     const today = getTodayDateString();
-    const newTasks = ensureTasksForDate(agendas, tasks, today);
-
-    if (newTasks.length > 0) {
-      setTasks((prev) => [...prev, ...newTasks]);
-    }
-  }, [agendas, tasks, loading]);
+    setTasks((prev) => {
+      const newTasks = ensureTasksForDate(agendas, prev, today);
+      return newTasks.length > 0 ? [...prev, ...newTasks] : prev;
+    });
+  }, [agendas, loading]);
 
   const handleAgendaCreated = (newAgenda: Agenda) => {
     const initialTasks = createInitialTasks(newAgenda);
@@ -134,14 +133,14 @@ export default function App() {
   };
 
   const handleDeleteAgenda = (id: string) => {
-    setAgendas((prev) => prev.filter((a) => a.id !== id));
-    setTasks((prev) => prev.filter((t) => t.agendaId !== id));
-    // Logic from ref: if last one, go to onboarding?
-    // Check immediately
-    const remaining = agendas.filter((a) => a.id !== id);
-    if (remaining.length === 0) {
-      setView("onboarding");
-    }
+    // setAgendas((prev) => prev.filter((a) => a.id !== id));
+    setAgendas((prev) => {
+      const remaining = prev.filter((a) => a.id !== id);
+      if (remaining.length === 0) {
+        setView("onboarding");
+      }
+      return remaining;
+    });
   };
 
   if (loading) return null; // Or splash screen

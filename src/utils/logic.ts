@@ -100,14 +100,18 @@ export const recalculateNumericTasks = (
     };
   } else if (strategy === "SPREAD") {
     const remainingTasks = newTasks.length - 1 - taskIndex;
-    const amountPerTask = Math.ceil(missingAmount / remainingTasks);
+    if (remainingTasks > 0) {
+      const base = Math.floor(missingAmount / remainingTasks);
+      const rem = missingAmount % remainingTasks;
 
-    for (let i = taskIndex + 1; i < newTasks.length; i++) {
-      newTasks[i] = {
-        ...newTasks[i],
-        targetVal: newTasks[i].targetVal + amountPerTask,
-        wasRecalculated: true,
-      };
+      for (let i = taskIndex + 1; i < newTasks.length; i++) {
+        const extra = i - (taskIndex + 1) < rem ? 1 : 0;
+        newTasks[i] = {
+          ...newTasks[i],
+          targetVal: newTasks[i].targetVal + base + extra,
+          wasRecalculated: true,
+        };
+      }
     }
   }
 

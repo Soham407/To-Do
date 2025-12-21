@@ -12,11 +12,11 @@ export enum TaskStatus {
 }
 
 export enum FailureTag {
-  SICK = "🤒 Sick",
-  WORK = "💼 Work Overload",
-  TIRED = "😴 Tired",
-  DISTRACTED = "🐿️ Distracted",
-  OTHER = "🤷 Other",
+  SICK = "Sick",
+  WORK = "Work Overload",
+  TIRED = "Tired",
+  DISTRACTED = "Distracted",
+  OTHER = "Other",
   NONE = "NONE",
 }
 

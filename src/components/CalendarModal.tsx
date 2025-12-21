@@ -1,12 +1,17 @@
 import React from "react";
 import { Modal, View, Text, Button } from "react-native";
-
-const CalendarModal = ({
+interface CalendarModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
+}
+const CalendarModal: React.FC<CalendarModalProps> = ({
   isOpen,
   onClose,
   selectedDate,
   onSelectDate,
-}: any) => {
+}) => {
   return (
     <Modal visible={isOpen} transparent>
       <View>
