@@ -34,11 +34,19 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      Alert.alert("Error logging out", error.message);
-    } else {
-      onClose();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        Alert.alert("Error logging out", error.message);
+        // Do NOT close the modal on error
+      } else {
+        onClose();
+      }
+    } catch (err: any) {
+      Alert.alert(
+        "Error logging out",
+        err.message || "An unexpected error occurred"
+      );
     }
   };
 

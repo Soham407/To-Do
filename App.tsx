@@ -72,10 +72,35 @@ function MainApp() {
   }, [agendas, tasks, loading]);
 
   // Migration Trigger
+  const migrationGuard = React.useRef(false);
+
   useEffect(() => {
-    if (session?.user) {
-      migrateLocalDataToSupabase();
-    }
+    const runMigration = async () => {
+      if (session?.user && !migrationGuard.current) {
+        const userMigrationKey = `otp_migration_complete_${session.user.id}`;
+
+        try {
+          // Check persistent flag
+          const isMigrated = await AsyncStorage.getItem(userMigrationKey);
+          if (isMigrated === "true") return;
+
+          // Set in-memory guard
+          migrationGuard.current = true;
+
+          // Run migration
+          await migrateLocalDataToSupabase();
+
+          // Set persistent flag on success
+          await AsyncStorage.setItem(userMigrationKey, "true");
+        } catch (e) {
+          console.error("Migration failed, allowing retry:", e);
+          // Reset guard to allow retry on next mount/session change
+          migrationGuard.current = false;
+        }
+      }
+    };
+
+    runMigration();
   }, [session]);
 
   // Logic Hardening

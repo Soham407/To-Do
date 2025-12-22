@@ -13,54 +13,73 @@ const isValidUUID = (uuid: string) => {
 };
 
 export const migrateLocalDataToSupabase = async () => {
-  try {
-    // 1. Check if already migrated
-    const isMigrated = await AsyncStorage.getItem(MIGRATION_KEY);
-    if (isMigrated === "true") {
-      console.log("Migration already completed.");
-      return;
-    }
+  // 1. Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    console.log("No user logged in, skipping migration.");
+    return;
+  }
 
-    // 2. Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      console.log("No user logged in, skipping migration.");
-      return;
-    }
+  // 2. Load local data
+  const agendasJson = await AsyncStorage.getItem("agendas");
+  const tasksJson = await AsyncStorage.getItem("tasks");
 
-    // 3. Load local data
-    const agendasJson = await AsyncStorage.getItem("agendas");
-    const tasksJson = await AsyncStorage.getItem("tasks");
+  if (!agendasJson) {
+    console.log("No local agendas to migrate.");
+    return;
+  }
 
-    if (!agendasJson) {
-      console.log("No local agendas to migrate.");
-      await AsyncStorage.setItem(MIGRATION_KEY, "true");
-      return;
-    }
+  const agendas: Agenda[] = JSON.parse(agendasJson);
+  const tasks: DailyTask[] = tasksJson ? JSON.parse(tasksJson) : [];
 
-    const agendas: Agenda[] = JSON.parse(agendasJson);
-    const tasks: DailyTask[] = tasksJson ? JSON.parse(tasksJson) : [];
+  if (agendas.length === 0) {
+    console.log("Local agendas list is empty.");
+    return;
+  }
 
-    if (agendas.length === 0) {
-      console.log("Local agendas list is empty.");
-      await AsyncStorage.setItem(MIGRATION_KEY, "true");
-      return;
-    }
+  console.log(
+    `Migrating ${agendas.length} agendas and ${tasks.length} tasks...`
+  );
 
-    console.log(
-      `Migrating ${agendas.length} agendas and ${tasks.length} tasks...`
+  // ID Mapping (Legacy ID -> New UUID)
+  // Load existing map if any (for retries)
+  const storedMap = await AsyncStorage.getItem("migration_id_map");
+  const agendaIdMap = new Map<string, string>(
+    storedMap ? JSON.parse(storedMap) : []
+  );
+
+  // Helper for deterministic UUID
+  const getDeterministicUUID = async (input: string) => {
+    if (isValidUUID(input)) return input;
+    const digest = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA1,
+      input
     );
+    // Format SHA1 digest (20 bytes hex) into UUID (16 bytes hex)
+    // xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    return (
+      digest.substring(0, 8) +
+      "-" +
+      digest.substring(8, 12) +
+      "-" +
+      digest.substring(12, 16) +
+      "-" +
+      digest.substring(16, 20) +
+      "-" +
+      digest.substring(20, 32)
+    );
+  };
 
-    // ID Mapping (Legacy ID -> New UUID)
-    const agendaIdMap = new Map<string, string>();
-
-    // 4. Insert Agendas
-    const agendaRows = agendas.map((agenda) => {
-      // Check if existing ID is valid UUID, if not generate new one
-      const newId = isValidUUID(agenda.id) ? agenda.id : Crypto.randomUUID();
-      agendaIdMap.set(agenda.id, newId);
+  // 3. Prepare Agendas
+  const agendaRows = await Promise.all(
+    agendas.map(async (agenda) => {
+      let newId = agendaIdMap.get(agenda.id);
+      if (!newId) {
+        newId = await getDeterministicUUID(agenda.id);
+        agendaIdMap.set(agenda.id, newId);
+      }
 
       return {
         id: newId,
@@ -75,28 +94,36 @@ export const migrateLocalDataToSupabase = async () => {
         start_date: agenda.startDate,
         status: "ACTIVE",
       };
-    });
+    })
+  );
 
-    const { error: agendaError } = await supabase
-      .from("agendas")
-      .upsert(agendaRows, { onConflict: "id" });
+  // Persist map BEFORE upserting tasks (Critical for retries)
+  await AsyncStorage.setItem(
+    "migration_id_map",
+    JSON.stringify(Array.from(agendaIdMap.entries()))
+  );
 
-    if (agendaError) {
-      console.error("Error migrating agendas:", agendaError);
-      throw agendaError;
-    }
+  // Upsert Agendas
+  const { error: agendaError } = await supabase
+    .from("agendas")
+    .upsert(agendaRows, { onConflict: "id" });
 
-    // 5. Insert Tasks
-    if (tasks.length > 0) {
-      const taskRows = tasks
-        .filter((task) => agendaIdMap.has(task.agendaId)) // Only migrate tasks for migrated agendas
-        .map((task) => {
-          // Check if existing ID is valid UUID
-          const newId = isValidUUID(task.id) ? task.id : Crypto.randomUUID();
+  if (agendaError) {
+    console.error("Error migrating agendas:", agendaError);
+    throw agendaError;
+  }
+
+  // 4. Insert Tasks
+  if (tasks.length > 0) {
+    const taskRows = await Promise.all(
+      tasks
+        .filter((task) => agendaIdMap.has(task.agendaId))
+        .map(async (task) => {
+          const newId = await getDeterministicUUID(task.id);
 
           return {
             id: newId,
-            agenda_id: agendaIdMap.get(task.agendaId), // Use mapped agenda ID
+            agenda_id: agendaIdMap.get(task.agendaId),
             scheduled_date: task.scheduledDate,
             target_val: task.targetVal,
             actual_val: task.actualVal,
@@ -106,25 +133,20 @@ export const migrateLocalDataToSupabase = async () => {
             mood: task.mood || null,
             was_recalculated: task.wasRecalculated || false,
           };
-        });
+        })
+    );
 
-      if (taskRows.length > 0) {
-        const { error: taskError } = await supabase
-          .from("daily_tasks")
-          .upsert(taskRows, { onConflict: "id" });
+    if (taskRows.length > 0) {
+      const { error: taskError } = await supabase
+        .from("daily_tasks")
+        .upsert(taskRows, { onConflict: "id" });
 
-        if (taskError) {
-          console.error("Error migrating tasks:", taskError);
-          throw taskError;
-        }
+      if (taskError) {
+        console.error("Error migrating tasks:", taskError);
+        throw taskError;
       }
     }
-
-    // 6. Mark as complete
-    await AsyncStorage.setItem(MIGRATION_KEY, "true");
-    console.log("Migration completed successfully.");
-  } catch (error) {
-    console.error("Migration failed:", error);
-    // Do not mark as complete so we can retry later
   }
+
+  console.log("Migration completed successfully.");
 };

@@ -39,6 +39,13 @@ export const MD3LightTheme = {
   inverseSurface: "#313033",
   inverseOnSurface: "#F4EFF4",
   inversePrimary: "#D0BCFF",
+
+  // Custom Buffer Tokens
+  bufferContainer: "#FFF8E1", // Amber 50
+  bufferContainerSelected: "#FFECB3", // Amber 100
+  bufferBorder: "#FFC107", // Amber 500
+  onBuffer: "#4E342E", // Amber 900
+  onBufferVariant: "#8D6E63", // Brown 400
 };
 
 export const MD3DarkTheme = {
@@ -79,6 +86,13 @@ export const MD3DarkTheme = {
   inverseSurface: "#E6E1E5",
   inverseOnSurface: "#313033",
   inversePrimary: "#6750A4",
+
+  // Custom Buffer Tokens
+  bufferContainer: "#4E342E", // Dark Amber
+  bufferContainerSelected: "#6D4C41", // Darker Amber
+  bufferBorder: "#FFC107", // Amber 500
+  onBuffer: "#FFF8E1", // Light Amber Text
+  onBufferVariant: "#D7CCC8", // Light Brown
 };
 
 export type MD3Theme = typeof MD3LightTheme;

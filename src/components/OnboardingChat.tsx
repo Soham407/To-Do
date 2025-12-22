@@ -145,13 +145,14 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
       case "UNIT": {
         setDraftAgenda({ ...draftAgenda, unit: input });
         setStep("CONFIRM");
-        const dailyTarget = draftAgenda.totalTarget
-          ? Math.ceil(draftAgenda.totalTarget / 30)
-          : input;
+        const safeTotal = draftAgenda.totalTarget || 0;
+        const dailyTarget = safeTotal > 0 ? Math.ceil(safeTotal / 30) : 0; // Default to 0 if no target to ensure numeric type
+
         addBotMessage(
-          `Perfect. Your daily goal is to do about ${dailyTarget}. If you miss it, we'll recalculate. Ready?`,
+          `Perfect. Your daily goal is to do about ${dailyTarget} ${input}. If you miss it, we'll recalculate. Ready?`,
           ["Yes", "Cancel"]
         );
+
         break;
       }
 

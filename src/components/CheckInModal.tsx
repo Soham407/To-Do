@@ -411,31 +411,31 @@ const getStyles = (theme: any) =>
       alignItems: "center",
       padding: 16,
       borderRadius: 16,
-      backgroundColor: "#FFF8E1", // Amber 50
+      backgroundColor: theme.bufferContainer,
       borderWidth: 1,
       borderColor: "transparent",
       gap: 16,
     },
     bufferCardSelected: {
-      borderColor: "#FFC107", // Amber 500
-      backgroundColor: "#FFECB3", // Amber 100
+      borderColor: theme.bufferBorder,
+      backgroundColor: theme.bufferContainerSelected,
     },
     tokenIcon: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: "#ffffff",
+      backgroundColor: theme.surface,
       alignItems: "center",
       justifyContent: "center",
     },
     bufferTitle: {
       fontSize: 16,
       fontWeight: "500",
-      color: "#4e342e", // Amber dark
+      color: theme.onBuffer,
     },
     bufferSubtitle: {
       fontSize: 12,
-      color: "#8d6e63",
+      color: theme.onBufferVariant,
     },
     footer: {
       padding: 24,
