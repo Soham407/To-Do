@@ -6,6 +6,7 @@ import Dashboard from "./src/components/Dashboard";
 import OnboardingChat from "./src/components/OnboardingChat";
 import ReportView from "./src/components/ReportView";
 import { Agenda, DailyTask, AgendaType } from "./src/types";
+import { ThemeProvider } from "./src/context/ThemeContext";
 import {
   createInitialTasks,
   recalculateNumericTasks,
@@ -13,8 +14,24 @@ import {
   getTodayDateString,
 } from "./src/utils/logic";
 import { StatusBar } from "expo-status-bar";
+import { migrateLocalDataToSupabase } from "./src/utils/migration";
+
+import { AuthProvider, useAuth } from "./src/context/AuthContext";
+import LoginScreen from "./src/components/LoginScreen";
+import SignupScreen from "./src/components/SignupScreen";
 
 export default function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <MainApp />
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+function MainApp() {
+  const { session, loading: authLoading } = useAuth();
   const [agendas, setAgendas] = useState<Agenda[]>([]);
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [view, setView] = useState<"dashboard" | "onboarding" | "report">(
@@ -22,6 +39,7 @@ export default function App() {
   );
   const [loading, setLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
 
   // Persistence Loading
   useEffect(() => {
@@ -52,6 +70,41 @@ export default function App() {
       AsyncStorage.setItem("tasks", JSON.stringify(tasks));
     }
   }, [agendas, tasks, loading]);
+
+  // Migration Trigger
+  const migrationGuard = React.useRef(false);
+
+  useEffect(() => {
+    const runMigration = async () => {
+      if (session?.user && !migrationGuard.current) {
+        const userMigrationKey = `otp_migration_complete_${session.user.id}`;
+
+        // Set in-memory guard immediately to prevent race conditions
+        migrationGuard.current = true;
+
+        try {
+          // Check persistent flag
+          const isMigrated = await AsyncStorage.getItem(userMigrationKey);
+          if (isMigrated === "true") {
+            migrationGuard.current = false;
+            return;
+          }
+
+          // Run migration
+          await migrateLocalDataToSupabase();
+
+          // Set persistent flag on success
+          await AsyncStorage.setItem(userMigrationKey, "true");
+        } catch (e) {
+          console.error("Migration failed, allowing retry:", e);
+          // Reset guard to allow retry on next mount/session change
+          migrationGuard.current = false;
+        }
+      }
+    };
+
+    runMigration();
+  }, [session]);
 
   // Logic Hardening
   useEffect(() => {
@@ -145,7 +198,24 @@ export default function App() {
     setAgendas((prev) => prev.filter((a) => a.id !== id));
   };
 
-  if (loading) return null; // Or splash screen
+  if (loading || authLoading) return null; // Or splash screen
+
+  if (!session) {
+    if (showSignup) {
+      return (
+        <SafeAreaProvider>
+          <SignupScreen onLogin={() => setShowSignup(false)} />
+          <StatusBar style="auto" />
+        </SafeAreaProvider>
+      );
+    }
+    return (
+      <SafeAreaProvider>
+        <LoginScreen onSignup={() => setShowSignup(true)} />
+        <StatusBar style="auto" />
+      </SafeAreaProvider>
+    );
+  }
 
   const renderContent = () => {
     switch (view) {

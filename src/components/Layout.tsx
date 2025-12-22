@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LayoutDashboard, Plus, PieChart } from "lucide-react-native";
-import { MD3Colors } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 
 interface LayoutProps {
   children: ReactNode;
@@ -23,6 +23,15 @@ const Layout: React.FC<LayoutProps> = ({
   onTabChange,
   showNav = true,
 }) => {
+  const { theme } = useTheme();
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
+
+  // Icon color logic:
+  // Active: Icon is PrimaryContainer (on Dark BG)
+  // Inactive: Icon is OnPrimaryContainer (on Light BG)
+  const getIconColor = (isActive: boolean) =>
+    isActive ? theme.primaryContainer : theme.onPrimaryContainer;
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.content}>{children}</View>
@@ -40,11 +49,7 @@ const Layout: React.FC<LayoutProps> = ({
             >
               <LayoutDashboard
                 size={24}
-                color={
-                  activeTab === "dashboard"
-                    ? MD3Colors.primaryContainer
-                    : MD3Colors.onPrimaryContainer
-                }
+                color={getIconColor(activeTab === "dashboard")}
                 strokeWidth={2.5}
               />
             </TouchableOpacity>
@@ -60,11 +65,7 @@ const Layout: React.FC<LayoutProps> = ({
             >
               <Plus
                 size={28}
-                color={
-                  activeTab === "onboarding"
-                    ? MD3Colors.primaryContainer
-                    : MD3Colors.onPrimaryContainer
-                }
+                color={getIconColor(activeTab === "onboarding")}
                 strokeWidth={activeTab === "onboarding" ? 3 : 2.5}
               />
             </TouchableOpacity>
@@ -79,11 +80,7 @@ const Layout: React.FC<LayoutProps> = ({
             >
               <PieChart
                 size={24}
-                color={
-                  activeTab === "report"
-                    ? MD3Colors.primaryContainer
-                    : MD3Colors.onPrimaryContainer
-                }
+                color={getIconColor(activeTab === "report")}
                 strokeWidth={2.5}
               />
             </TouchableOpacity>
@@ -94,57 +91,57 @@ const Layout: React.FC<LayoutProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: MD3Colors.surfaceContainerLow,
-  },
-  content: {
-    flex: 1,
-  },
-  navContainer: {
-    position: "absolute",
-    bottom: 30,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 100,
-  },
-  navBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-evenly",
-    backgroundColor: MD3Colors.primaryContainer, // slightly transparent handled by View opacity? No, keep it solid or use rgba
-    // Using md3 primaryContainer roughly
-    width: "85%",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 50,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.surfaceContainerLow,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
-  },
-  navButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fabButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  navButtonActive: {
-    backgroundColor: MD3Colors.onPrimaryContainer,
-  },
-});
+    content: {
+      flex: 1,
+    },
+    navContainer: {
+      position: "absolute",
+      bottom: 30,
+      left: 0,
+      right: 0,
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 100,
+    },
+    navBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-evenly",
+      backgroundColor: theme.primaryContainer,
+      width: "85%",
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 50,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 4.65,
+      elevation: 8,
+    },
+    navButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    fabButton: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+    },
+    navButtonActive: {
+      backgroundColor: theme.onPrimaryContainer,
+    },
+  });
 
 export default Layout;
