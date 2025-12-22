@@ -10,7 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { Agenda, AgendaType } from "../types";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme, ThemeType } from "../context/ThemeContext";
 import { X, Trash2, Save } from "lucide-react-native";
 
 interface Props {
@@ -20,6 +20,8 @@ interface Props {
   onUpdateAgenda: (agenda: Agenda) => void;
   onDeleteAgenda: (id: string) => void;
 }
+
+const DAYS_IN_MONTH = 30;
 
 const GoalSettingsModal: React.FC<Props> = ({
   isOpen,
@@ -39,7 +41,9 @@ const GoalSettingsModal: React.FC<Props> = ({
     if (agenda) {
       setTitle(agenda.title);
       setTarget(
-        agenda.totalTarget ? Math.ceil(agenda.totalTarget / 30).toString() : ""
+        agenda.totalTarget
+          ? Math.ceil(agenda.totalTarget / DAYS_IN_MONTH).toString()
+          : ""
       );
       setIsConfirmingDelete(false);
     }
@@ -52,7 +56,15 @@ const GoalSettingsModal: React.FC<Props> = ({
   const handleSave = () => {
     const updates: Agenda = { ...agenda, title };
     if (isNumeric && target) {
-      updates.totalTarget = parseInt(target) * 30; // approx monthly
+      const trimmedTarget = target.trim();
+      if (!/^\d+$/.test(trimmedTarget)) {
+        Alert.alert(
+          "Invalid Input",
+          "Please enter a valid daily target (numbers only)."
+        );
+        return;
+      }
+      updates.totalTarget = parseInt(trimmedTarget, 10) * DAYS_IN_MONTH;
     }
     onUpdateAgenda(updates);
     onClose();
@@ -143,7 +155,7 @@ const GoalSettingsModal: React.FC<Props> = ({
   );
 };
 
-const getStyles = (theme: any) =>
+const getStyles = (theme: ThemeType) =>
   StyleSheet.create({
     centeredView: {
       flex: 1,

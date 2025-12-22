@@ -29,15 +29,20 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      Alert.alert("Login Failed", error.message);
+      if (error) {
+        Alert.alert("Login Failed", error.message);
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "An unexpected error occurred");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

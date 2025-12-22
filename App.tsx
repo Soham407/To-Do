@@ -79,13 +79,16 @@ function MainApp() {
       if (session?.user && !migrationGuard.current) {
         const userMigrationKey = `otp_migration_complete_${session.user.id}`;
 
+        // Set in-memory guard immediately to prevent race conditions
+        migrationGuard.current = true;
+
         try {
           // Check persistent flag
           const isMigrated = await AsyncStorage.getItem(userMigrationKey);
-          if (isMigrated === "true") return;
-
-          // Set in-memory guard
-          migrationGuard.current = true;
+          if (isMigrated === "true") {
+            migrationGuard.current = false;
+            return;
+          }
 
           // Run migration
           await migrateLocalDataToSupabase();

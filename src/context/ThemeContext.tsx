@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useColorScheme } from "react-native";
 import { MD3LightTheme, MD3DarkTheme } from "../theme";
 
-type ThemeType = typeof MD3LightTheme;
+export type ThemeType = typeof MD3LightTheme;
 
 interface ThemeContextType {
   theme: ThemeType;
