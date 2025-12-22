@@ -8,8 +8,11 @@ import {
   Switch,
   ScrollView,
   Image,
+  Alert,
 } from "react-native";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
 import {
   X,
   User,
@@ -26,8 +29,18 @@ export interface ProfileModalProps {
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const { theme, isDark, toggleTheme } = useTheme();
+  const { user } = useAuth();
   const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      Alert.alert("Error logging out", error.message);
+    } else {
+      onClose();
+    }
+  };
 
   return (
     <Modal
@@ -53,8 +66,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 <User size={32} color={theme.onPrimaryContainer} />
               </View>
               <View>
-                <Text style={styles.profileName}>Guest User</Text>
-                <Text style={styles.profileEmail}>Goal Coach Trial</Text>
+                <Text style={styles.profileName}>
+                  {user?.email ? user.email.split("@")[0] : "Guest User"}
+                </Text>
+                <Text style={styles.profileEmail}>
+                  {user?.email || "Goal Coach Trial"}
+                </Text>
               </View>
             </View>
 
@@ -97,7 +114,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
             <View style={styles.divider} />
 
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <View style={styles.settingLeft}>
                 <LogOut size={20} color={theme.error} />
                 <Text style={[styles.settingText, { color: theme.error }]}>

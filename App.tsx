@@ -14,16 +14,24 @@ import {
   getTodayDateString,
 } from "./src/utils/logic";
 import { StatusBar } from "expo-status-bar";
+import { migrateLocalDataToSupabase } from "./src/utils/migration";
+
+import { AuthProvider, useAuth } from "./src/context/AuthContext";
+import LoginScreen from "./src/components/LoginScreen";
+import SignupScreen from "./src/components/SignupScreen";
 
 export default function App() {
   return (
     <ThemeProvider>
-      <MainApp />
+      <AuthProvider>
+        <MainApp />
+      </AuthProvider>
     </ThemeProvider>
   );
 }
 
 function MainApp() {
+  const { session, loading: authLoading } = useAuth();
   const [agendas, setAgendas] = useState<Agenda[]>([]);
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [view, setView] = useState<"dashboard" | "onboarding" | "report">(
@@ -31,6 +39,7 @@ function MainApp() {
   );
   const [loading, setLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
 
   // Persistence Loading
   useEffect(() => {
@@ -61,6 +70,13 @@ function MainApp() {
       AsyncStorage.setItem("tasks", JSON.stringify(tasks));
     }
   }, [agendas, tasks, loading]);
+
+  // Migration Trigger
+  useEffect(() => {
+    if (session?.user) {
+      migrateLocalDataToSupabase();
+    }
+  }, [session]);
 
   // Logic Hardening
   useEffect(() => {
@@ -154,7 +170,24 @@ function MainApp() {
     setAgendas((prev) => prev.filter((a) => a.id !== id));
   };
 
-  if (loading) return null; // Or splash screen
+  if (loading || authLoading) return null; // Or splash screen
+
+  if (!session) {
+    if (showSignup) {
+      return (
+        <SafeAreaProvider>
+          <SignupScreen onLogin={() => setShowSignup(false)} />
+          <StatusBar style="auto" />
+        </SafeAreaProvider>
+      );
+    }
+    return (
+      <SafeAreaProvider>
+        <LoginScreen onSignup={() => setShowSignup(true)} />
+        <StatusBar style="auto" />
+      </SafeAreaProvider>
+    );
+  }
 
   const renderContent = () => {
     switch (view) {

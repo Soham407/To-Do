@@ -6,7 +6,9 @@ import {
   AgendaType,
 } from "../types";
 
-export const generateId = () => Math.random().toString(36).substr(2, 9);
+import * as Crypto from "expo-crypto";
+
+export const generateId = () => Crypto.randomUUID();
 
 // Helper to get local date string YYYY-MM-DD
 export const getLocalDateString = (date: Date = new Date()) => {
