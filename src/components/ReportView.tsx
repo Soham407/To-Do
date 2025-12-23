@@ -40,43 +40,62 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
   const [insightText, setInsightText] = useState<string | null>(null);
 
   const daysToShow = filter === "week" ? 7 : 30;
-  const today = new Date();
-  const startDate = new Date();
-  startDate.setDate(today.getDate() - daysToShow + 1);
-  const startDateStr = getLocalDateString(startDate);
 
-  // Stats Logic
-  const rangeTasks = tasks.filter(
-    (t) =>
-      t.scheduledDate >= startDateStr &&
-      agendas.some((a) => a.id === t.agendaId)
+  const startDateStr = React.useMemo(() => {
+    const days = daysToShow;
+    const today = new Date();
+    const start = new Date();
+    start.setDate(today.getDate() - days + 1);
+    return getLocalDateString(start);
+  }, [filter]);
+
+  // Stats Logic (Memoized)
+  const rangeTasks = React.useMemo(
+    () =>
+      tasks.filter(
+        (t) =>
+          t.scheduledDate >= startDateStr &&
+          agendas.some((a) => a.id === t.agendaId)
+      ),
+    [tasks, startDateStr, agendas]
   );
 
-  const completedOrFailed = rangeTasks.filter(
-    (t) => t.status !== TaskStatus.PENDING
-  );
-  const successful = completedOrFailed.filter(
-    (t) =>
-      t.status === TaskStatus.COMPLETED ||
-      t.status === TaskStatus.SKIPPED_WITH_BUFFER
+  const completedOrFailed = React.useMemo(
+    () => rangeTasks.filter((t) => t.status !== TaskStatus.PENDING),
+    [rangeTasks]
   );
 
-  const consistencyScore =
-    completedOrFailed.length > 0
-      ? Math.round((successful.length / completedOrFailed.length) * 100)
-      : 0;
+  const successful = React.useMemo(
+    () =>
+      completedOrFailed.filter(
+        (t) =>
+          t.status === TaskStatus.COMPLETED ||
+          t.status === TaskStatus.SKIPPED_WITH_BUFFER
+      ),
+    [completedOrFailed]
+  );
 
-  // Failure Tag Logic
-  const tagCounts: Record<string, number> = {};
-  completedOrFailed.forEach((t) => {
-    if (t.failureTag && t.failureTag !== FailureTag.NONE) {
-      tagCounts[t.failureTag] = (tagCounts[t.failureTag] || 0) + 1;
-    }
-  });
+  const consistencyScore = React.useMemo(
+    () =>
+      completedOrFailed.length > 0
+        ? Math.round((successful.length / completedOrFailed.length) * 100)
+        : 0,
+    [completedOrFailed.length, successful.length]
+  );
 
-  const topTags = Object.entries(tagCounts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 3);
+  // Failure Tag Logic (Memoized)
+  const topTags = React.useMemo(() => {
+    const tagCounts: Record<string, number> = {};
+    completedOrFailed.forEach((t) => {
+      if (t.failureTag && t.failureTag !== FailureTag.NONE) {
+        tagCounts[t.failureTag] = (tagCounts[t.failureTag] || 0) + 1;
+      }
+    });
+
+    return Object.entries(tagCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3);
+  }, [completedOrFailed]);
 
   // Fetch Neural Insights (RPC)
   useEffect(() => {

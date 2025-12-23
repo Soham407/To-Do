@@ -90,9 +90,27 @@ export const recalculateNumericTasks = (
   strategy: "TOMORROW" | "SPREAD"
 ): DailyTask[] => {
   const taskIndex = tasks.findIndex((t) => t.id === failedTaskId);
-  if (taskIndex === -1 || taskIndex === tasks.length - 1) return tasks; // No future tasks
+  if (taskIndex === -1) return tasks;
 
   const newTasks = [...tasks];
+
+  // Logic Hardening: If last day, append a new day to accommodate overflow
+  if (taskIndex === newTasks.length - 1) {
+    const lastTask = newTasks[taskIndex];
+    const lastDate = new Date(lastTask.scheduledDate);
+    const nextDate = new Date(lastDate);
+    nextDate.setDate(lastDate.getDate() + 1);
+
+    newTasks.push({
+      id: generateId(),
+      agendaId: lastTask.agendaId,
+      scheduledDate: getLocalDateString(nextDate),
+      targetVal: 0, // Will be filled by logic below
+      actualVal: 0,
+      status: TaskStatus.PENDING,
+      wasRecalculated: true,
+    });
+  }
 
   if (strategy === "TOMORROW") {
     newTasks[taskIndex + 1] = {
