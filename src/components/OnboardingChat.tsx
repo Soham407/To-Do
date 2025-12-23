@@ -107,8 +107,8 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
         if (type === AgendaType.NUMERIC) {
           setStep("TARGET");
           addBotMessage(
-            "Got it. What is the total number you want to reach per day? (e.g., 20)",
-            ["10", "20", "50", "100"]
+            "Got it. What is the TOTAL number you want to reach? (e.g., Read 1 book = 300 pages)",
+            ["100", "500", "1000", "5000"]
           );
         } else {
           setStep("CONFIRM");
@@ -132,7 +132,8 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
           addBotMessage("Please enter a valid number.");
           return;
         }
-        setDraftAgenda({ ...draftAgenda, totalTarget: target * 30 });
+        // Option 1: Store pure decomposing intent
+        setDraftAgenda({ ...draftAgenda, totalTarget: target });
         setStep("UNIT");
         addBotMessage("What is the unit? (e.g., pages, minutes, km)", [
           "pages",
@@ -146,10 +147,14 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
         setDraftAgenda({ ...draftAgenda, unit: input });
         setStep("CONFIRM");
         const safeTotal = draftAgenda.totalTarget || 0;
-        const dailyTarget = safeTotal > 0 ? Math.ceil(safeTotal / 30) : 0; // Default to 0 if no target to ensure numeric type
+
+        // "Magic Number" logic (for now, as per Senior Engineer Advice)
+        // Future: Ask for duration
+        const duration = 30;
+        const dailyTarget = safeTotal > 0 ? Math.ceil(safeTotal / duration) : 0;
 
         addBotMessage(
-          `Perfect. Your daily goal is to do about ${dailyTarget} ${input}. If you miss it, we'll recalculate. Ready?`,
+          `Perfect. To reach ${safeTotal} ${input} in ${duration} days, you'll need to do about ${dailyTarget} ${input} per day. Ready?`,
           ["Yes", "Cancel"]
         );
 
