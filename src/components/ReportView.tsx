@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import {
   AgendaType,
 } from "../types";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
 import {
   Trophy,
   AlertTriangle,
@@ -32,8 +34,10 @@ interface ReportViewProps {
 
 const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [filter, setFilter] = useState<"week" | "month">("week");
+  const [insightText, setInsightText] = useState<string | null>(null);
 
   const daysToShow = filter === "week" ? 7 : 30;
   const today = new Date();
@@ -47,6 +51,7 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
       t.scheduledDate >= startDateStr &&
       agendas.some((a) => a.id === t.agendaId)
   );
+
   const completedOrFailed = rangeTasks.filter(
     (t) => t.status !== TaskStatus.PENDING
   );
@@ -68,9 +73,42 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
       tagCounts[t.failureTag] = (tagCounts[t.failureTag] || 0) + 1;
     }
   });
+
   const topTags = Object.entries(tagCounts)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 3);
+
+  // Fetch Neural Insights (RPC)
+  useEffect(() => {
+    const fetchInsights = async () => {
+      if (!user) return;
+      try {
+        const { data, error } = await supabase.rpc(
+          "get_insights_failure_by_day",
+          {
+            p_user_id: user.id,
+          }
+        );
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const top = data[0]; // Highest count
+          setInsightText(
+            `Insight: You tend to report '${top.failure_tag}' most often on ${top.day_label}s.`
+          );
+        }
+      } catch (e) {
+        console.error("Failed to fetch insights", e);
+      }
+    };
+
+    // Only fetch if we have failed tasks to analyze, avoiding empty calls
+    if (completedOrFailed.length > 0) {
+      fetchInsights();
+    }
+  }, [user, tasks]); // Re-run when tasks change (e.g. new check-in)
+
+  // ... existing existing logic for Stats/Tags
 
   const getCalendarDays = (daysToGenerate: number) => {
     const days = [];
@@ -328,8 +366,24 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
           <AlertTriangle size={16} color={theme.primary} />
-          <Text style={styles.sectionTitle}>Blockers</Text>
+          <Text style={styles.sectionTitle}>Blockers & Insights</Text>
         </View>
+
+        {insightText && (
+          <View
+            style={[
+              styles.noBlockersBox,
+              { marginBottom: 12, backgroundColor: theme.primaryContainer },
+            ]}
+          >
+            <TrendingUp size={16} color={theme.onPrimaryContainer} />
+            <Text
+              style={{ color: theme.onPrimaryContainer, flex: 1, fontSize: 13 }}
+            >
+              {insightText}
+            </Text>
+          </View>
+        )}
 
         {topTags.length === 0 ? (
           <View style={styles.noBlockersBox}>
