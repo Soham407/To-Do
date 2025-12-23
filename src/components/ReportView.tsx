@@ -19,9 +19,10 @@ import {
   Trophy,
   AlertTriangle,
   TrendingUp,
-  Calendar,
+  Calendar as CalendarIcon,
   Check,
 } from "lucide-react-native";
+import { Calendar, DateData } from "react-native-calendars";
 import { getLocalDateString } from "../utils/logic";
 
 interface ReportViewProps {
@@ -164,7 +165,7 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
       {/* History Section */}
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
-          <Calendar size={16} color={theme.primary} />
+          <CalendarIcon size={16} color={theme.primary} />
           <Text style={styles.sectionTitle}>History</Text>
         </View>
 
@@ -188,82 +189,135 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
                   filter === "week" ? styles.dotsFlex : styles.dotsWrap,
                 ]}
               >
-                {calendarDays.map((dateStr) => {
-                  const task = tasks.find(
-                    (t) =>
-                      t.agendaId === agenda.id && t.scheduledDate === dateStr
-                  );
-                  const status = task ? task.status : null;
+                {filter === "month" ? (
+                  <Calendar
+                    current={getLocalDateString(new Date())}
+                    key={agenda.id + theme.background} // Force re-render on theme change
+                    markingType={"custom"}
+                    markedDates={(() => {
+                      const marks: any = {};
+                      tasks
+                        .filter((t) => t.agendaId === agenda.id)
+                        .forEach((t) => {
+                          let color = theme.surfaceVariant;
+                          let textColor = theme.onSurfaceVariant;
+                          if (t.status === TaskStatus.COMPLETED) {
+                            color = theme.primary;
+                            textColor = theme.onPrimary;
+                          } else if (t.status === TaskStatus.FAILED) {
+                            color = theme.error;
+                            textColor = theme.onError;
+                          } else if (
+                            t.status === TaskStatus.SKIPPED_WITH_BUFFER
+                          ) {
+                            color = "#FFC107";
+                            textColor = "#000";
+                          } else if (t.status === TaskStatus.PARTIAL) {
+                            color = theme.secondary;
+                            textColor = theme.onSecondary;
+                          }
 
-                  let bgColor = theme.surfaceVariant + "80"; // Light gray
-                  let textColor = theme.onSurfaceVariant;
-                  let content = "";
+                          if (t.status !== TaskStatus.PENDING) {
+                            marks[t.scheduledDate] = {
+                              customStyles: {
+                                container: {
+                                  backgroundColor: color,
+                                  borderRadius: 8,
+                                },
+                                text: {
+                                  color: textColor,
+                                  fontWeight: "bold",
+                                },
+                              },
+                            };
+                          }
+                        });
+                      return marks;
+                    })()}
+                    theme={{
+                      backgroundColor: "transparent",
+                      calendarBackground: "transparent",
+                      textSectionTitleColor: theme.onSurfaceVariant,
+                      dayTextColor: theme.onSurface,
+                      todayTextColor: theme.primary,
+                      arrowColor: theme.primary,
+                      monthTextColor: theme.onSurface,
+                      textDayHeaderFontWeight: "600",
+                    }}
+                    hideExtraDays={true}
+                    disableMonthChange={true}
+                    hideArrows={true} // Simple specific month view? Or allow navigation?
+                    // Mentor asked for "streak view" which usually implies static history
+                    // But standard calendar is fine. I'll hide arrows to keep it compact as "Last 30 days" implies static window?
+                    // "Last 30 Days" filter usually implies a rolling window, but Calendar is month-based (e.g. December).
+                    // Showing the current month is a good approximation for "Monthly Report".
+                  />
+                ) : (
+                  calendarDays.map((dateStr) => {
+                    const task = tasks.find(
+                      (t) =>
+                        t.agendaId === agenda.id && t.scheduledDate === dateStr
+                    );
+                    const status = task ? task.status : null;
 
-                  if (status) {
-                    switch (status) {
-                      case TaskStatus.COMPLETED:
-                        bgColor = theme.primary;
-                        textColor = theme.onPrimary;
-                        break;
-                      case TaskStatus.FAILED:
-                        bgColor = theme.error;
-                        textColor = theme.onError;
-                        content = "X";
-                        break;
-                      case TaskStatus.SKIPPED_WITH_BUFFER:
-                        bgColor = "#FFC107"; // Amber
-                        textColor = "#000";
-                        content = "B";
-                        break;
-                      case TaskStatus.PARTIAL:
-                        bgColor = theme.secondary;
-                        textColor = theme.onSecondary;
-                        content = "%";
-                        break;
-                      case TaskStatus.PENDING:
-                        bgColor = theme.surfaceVariant;
-                        break;
+                    let bgColor = theme.surfaceVariant + "80"; // Light gray
+                    let textColor = theme.onSurfaceVariant;
+                    let content = "";
+
+                    if (status) {
+                      switch (status) {
+                        case TaskStatus.COMPLETED:
+                          bgColor = theme.primary;
+                          textColor = theme.onPrimary;
+                          break;
+                        case TaskStatus.FAILED:
+                          bgColor = theme.error;
+                          textColor = theme.onError;
+                          content = "X";
+                          break;
+                        case TaskStatus.SKIPPED_WITH_BUFFER:
+                          bgColor = "#FFC107"; // Amber
+                          textColor = "#000";
+                          content = "B";
+                          break;
+                        case TaskStatus.PARTIAL:
+                          bgColor = theme.secondary;
+                          textColor = theme.onSecondary;
+                          content = "%";
+                          break;
+                        case TaskStatus.PENDING:
+                          bgColor = theme.surfaceVariant;
+                          break;
+                      }
                     }
-                  }
 
-                  const dayNum = new Date(dateStr).getDate();
+                    const dayNum = new Date(dateStr).getDate();
 
-                  return (
-                    <View
-                      key={dateStr}
-                      style={[
-                        styles.dot,
-                        filter === "week" ? styles.dotLarge : styles.dotSmall,
-                        {
-                          backgroundColor: bgColor,
-                          borderColor: theme.outline,
-                        },
-                      ]}
-                    >
-                      {filter === "month" && !content ? (
+                    return (
+                      <View
+                        key={dateStr}
+                        style={[
+                          styles.dot,
+                          styles.dotLarge, // Always large in Week view
+                          {
+                            backgroundColor: bgColor,
+                            borderColor: theme.outline,
+                          },
+                        ]}
+                      >
                         <Text
                           style={{
-                            fontSize: 8,
-                            color: textColor,
-                            opacity: 0.5,
-                          }}
-                        >
-                          {dayNum}
-                        </Text>
-                      ) : (
-                        <Text
-                          style={{
-                            fontSize: filter === "week" ? 12 : 10,
+                            fontSize: 12, // Always 12 in Week view
                             color: textColor,
                             fontWeight: "bold",
                           }}
                         >
                           {content}
                         </Text>
-                      )}
-                    </View>
-                  );
-                })}
+                      </View>
+                    );
+                  })
+                )}
               </View>
             </View>
           ))

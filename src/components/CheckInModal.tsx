@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from "react-native";
 import {
   DailyTask,
@@ -48,7 +49,13 @@ const CheckInModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (task) {
-      setVal(task.actualVal.toString());
+      // Start empty if 0 to reduce clutter until user types
+      const initialVal =
+        task.status === TaskStatus.PENDING && task.actualVal === 0
+          ? ""
+          : task.actualVal.toString();
+
+      setVal(initialVal);
       setSelectedStrategy(null);
       setUseBuffer(false);
       setSelectedTag(FailureTag.NONE);
@@ -63,9 +70,26 @@ const CheckInModal: React.FC<Props> = ({
   const missing = target - currentVal;
 
   const handleSave = () => {
+    if (val.trim() === "") {
+      Alert.alert("Input Required", "Please enter the amount you achieved.");
+      return;
+    }
+
     let status = TaskStatus.COMPLETED;
 
     if (isShortfall) {
+      if (
+        agenda.type === AgendaType.NUMERIC &&
+        !selectedStrategy &&
+        !useBuffer
+      ) {
+        Alert.alert(
+          "Recovery Strategy Required",
+          "Since you missed your target, please choose how to handle the remaining amount (Tomorrow or Spread)."
+        );
+        return;
+      }
+
       if (useBuffer) {
         status = TaskStatus.SKIPPED_WITH_BUFFER;
       } else if (currentVal > 0) {
@@ -132,7 +156,13 @@ const CheckInModal: React.FC<Props> = ({
     if (agenda.type === AgendaType.NUMERIC) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recovery Strategy</Text>
+          <Text style={styles.sectionTitle}>
+            Recovery Strategy
+            <Text style={{ color: theme.error, fontWeight: "normal" }}>
+              {" "}
+              — You missed {missing} {agenda.unit}
+            </Text>
+          </Text>
           <View style={styles.strategyContainer}>
             <TouchableOpacity
               style={[
@@ -252,7 +282,7 @@ const CheckInModal: React.FC<Props> = ({
               </View>
             </View>
 
-            {isShortfall && (
+            {isShortfall && val !== "" && (
               <>
                 <View style={styles.divider} />
                 {renderFailureTags()}
