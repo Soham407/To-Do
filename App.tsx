@@ -53,7 +53,22 @@ function MainApp() {
           setAgendas(parsedAgendas);
           if (parsedAgendas.length > 0) setView("dashboard");
         }
-        if (savedTasks) setTasks(JSON.parse(savedTasks));
+        if (savedTasks) {
+          const parsedTasks = JSON.parse(savedTasks);
+          // Sanitize: Remove orphans if agendas exist
+          if (savedAgendas) {
+            const parsedAgendas = JSON.parse(savedAgendas); // Re-parsing for safety in this scope
+            const validAgendaIds = new Set(
+              parsedAgendas.map((a: Agenda) => a.id)
+            );
+            const sanitizedTasks = parsedTasks.filter((t: DailyTask) =>
+              validAgendaIds.has(t.agendaId)
+            );
+            setTasks(sanitizedTasks);
+          } else {
+            setTasks(parsedTasks);
+          }
+        }
       } catch (e) {
         console.error("Failed to load storage", e);
       } finally {
@@ -196,6 +211,7 @@ function MainApp() {
 
   const handleDeleteAgenda = (id: string) => {
     setAgendas((prev) => prev.filter((a) => a.id !== id));
+    setTasks((prev) => prev.filter((t) => t.agendaId !== id));
   };
 
   if (loading || authLoading) return null; // Or splash screen

@@ -41,7 +41,11 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
   const startDateStr = getLocalDateString(startDate);
 
   // Stats Logic
-  const rangeTasks = tasks.filter((t) => t.scheduledDate >= startDateStr);
+  const rangeTasks = tasks.filter(
+    (t) =>
+      t.scheduledDate >= startDateStr &&
+      agendas.some((a) => a.id === t.agendaId)
+  );
   const completedOrFailed = rangeTasks.filter(
     (t) => t.status !== TaskStatus.PENDING
   );

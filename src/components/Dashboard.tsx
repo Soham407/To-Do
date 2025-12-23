@@ -232,9 +232,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [localTasks, setLocalTasks] = useState<DailyTask[]>([]);
 
   useEffect(() => {
-    const filtered = tasks.filter((t) => t.scheduledDate === selectedDate);
+    const filtered = tasks.filter(
+      (t) =>
+        t.scheduledDate === selectedDate &&
+        agendas.some((a) => a.id === t.agendaId)
+    );
     setLocalTasks(filtered);
-  }, [tasks, selectedDate]);
+  }, [tasks, selectedDate, agendas]);
 
   const handleTaskClick = (task: DailyTask) => {
     const agenda = agendas.find((a) => a.id === task.agendaId);
