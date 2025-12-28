@@ -74,7 +74,9 @@ export const createInitialTasks = (
   // If it's not recurring, we only create ONE task for the specific due date (or today)
   if (agenda.type === AgendaType.ONE_OFF || agenda.isRecurring === false) {
     // Use agenda.dueDate if available, otherwise default to today
-    const taskDate = agenda.due_date ? new Date(agenda.due_date) : today;
+    const taskDate = agenda.due_date
+      ? parseLocalIsoDate(agenda.due_date)
+      : today;
 
     tasks.push({
       id: generateId(),
