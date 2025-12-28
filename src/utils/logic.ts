@@ -53,14 +53,18 @@ export const isDateInRecurrence = (date: Date, agenda: Agenda): boolean => {
   return true;
 };
 
+const DEFAULT_DURATION_DAYS = 30;
+
 export const getDailyTarget = (agenda: Agenda): number => {
   if (agenda.type === AgendaType.NUMERIC) {
+    if (agenda.targetVal && agenda.targetVal > 0) {
+      return agenda.targetVal;
+    }
     if (agenda.totalTarget) {
-      return Math.ceil(agenda.totalTarget / 30); // Assume 30 days for now
+      return Math.ceil(agenda.totalTarget / DEFAULT_DURATION_DAYS); 
     }
     return 10; // Default placeholder
   }
-  // Boolean and One-Off are always 1 (Done/Not Done)
   return 1;
 };
 

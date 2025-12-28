@@ -134,15 +134,18 @@ function MainApp() {
     });
   }, [agendas, loading]);
 
-  const handleAgendaCreated = (newAgenda: Agenda) => {
-    const initialTasks = createInitialTasks(newAgenda);
+  const handleAgendaCreated = (newAgendas: Agenda | Agenda[]) => {
+    const agendasList = Array.isArray(newAgendas) ? newAgendas : [newAgendas];
+    
     setAgendas((prev) => {
       const wasEmpty = prev.length === 0;
-      const updated = [...prev, newAgenda];
+      const updated = [...prev, ...agendasList];
       if (wasEmpty) setIsNewUser(true);
       return updated;
     });
-    setTasks((prev) => [...prev, ...initialTasks]);
+
+    const allNewTasks = agendasList.flatMap(agenda => createInitialTasks(agenda));
+    setTasks((prev) => [...prev, ...allNewTasks]);
 
     setView("dashboard");
   };
@@ -206,11 +209,11 @@ function MainApp() {
     NotificationService.scheduleTaskReminder(newAgenda);
 
     if (updates.totalTarget && updates.totalTarget > 0) {
-      const newDailyTarget = Math.ceil(updates.totalTarget / 30);
+      const dailyTarget = updates.targetVal || oldAgenda.targetVal || Math.ceil(updates.totalTarget / 30);
       setTasks((prev) =>
         prev.map((t) => {
           if (t.agendaId === id && t.status === "PENDING") {
-            return { ...t, targetVal: newDailyTarget };
+            return { ...t, targetVal: dailyTarget };
           }
           return t;
         })

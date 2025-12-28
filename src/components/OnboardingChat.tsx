@@ -10,11 +10,13 @@ import {
   Platform,
   LayoutAnimation,
   UIManager,
+  Alert,
 } from "react-native";
 import { Agenda, AgendaType, ChatMessage } from "../types";
 import { generateId, getTodayDateString } from "../utils/logic";
 import { useTheme } from "../context/ThemeContext";
 import { Send, ArrowLeft } from "lucide-react-native";
+import { supabase } from "../lib/supabase";
 
 // Enable LayoutAnimation for Android
 if (
@@ -25,7 +27,7 @@ if (
 }
 
 interface OnboardingChatProps {
-  onComplete: (agenda: Agenda) => void;
+  onComplete: (agenda: Agenda | Agenda[]) => void;
   onCancel: () => void;
 }
 
@@ -38,16 +40,12 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "1",
-      text: "Hi! I'm your Goal Coach. I'm here to help you break down a big goal. What's the name of the goal you want to achieve?",
+      text: "Hi! I'm your Goal Coach. I'm here to help you turn your improved productivity into reality. What's a goal or project you'd like to work on?",
       sender: "bot",
     },
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [step, setStep] = useState<
-    "NAME" | "TYPE" | "TARGET" | "UNIT" | "CONFIRM"
-  >("NAME");
-  const [draftAgenda, setDraftAgenda] = useState<Partial<Agenda>>({});
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -58,126 +56,94 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
     }, 200);
   }, [messages, isTyping]);
 
-  const handleSend = (text: string) => {
+  const handleSend = async (text: string) => {
     if (!text.trim()) return;
 
+    // 1. Add user message
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    const newMsg: ChatMessage = {
+    const userMsg: ChatMessage = {
       id: generateId(),
       text,
       sender: "user",
     };
-    setMessages((prev) => [...prev, newMsg]);
+    
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInputValue("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      processInput(text);
+    try {
+      // 2. Call Edge Function
+      const { data, error } = await supabase.functions.invoke('chat-coach', {
+        body: { messages: updatedMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text })) },
+      });
+
+      if (error) throw error;
+
+      const { message, is_ready, agendas } = data;
+
       setIsTyping(false);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    }, 1200);
-  };
 
-  const addBotMessage = (text: string, options?: string[]) => {
-    setMessages((prev) => [
-      ...prev,
-      { id: generateId(), text, sender: "bot", options },
-    ]);
-  };
-
-  const processInput = (input: string) => {
-    switch (step) {
-      case "NAME":
-        setDraftAgenda({ ...draftAgenda, title: input });
-        setStep("TYPE");
-        addBotMessage(
-          "Great! Is this a numeric goal (e.g., 'Read 500 pages') or a habit you want to keep (e.g., 'Go to gym')?",
-          ["Numeric Goal", "Habit (Boolean)"]
-        );
-        break;
-
-      case "TYPE": {
-        const isNumeric =
-          input.toLowerCase().includes("numeric") ||
-          input.toLowerCase().includes("pages") ||
-          input.toLowerCase().includes("number");
-        const type = isNumeric ? AgendaType.NUMERIC : AgendaType.BOOLEAN;
-        setDraftAgenda({ ...draftAgenda, type });
-
-        if (type === AgendaType.NUMERIC) {
-          setStep("TARGET");
-          addBotMessage(
-            "Got it. What is the TOTAL number you want to reach? (e.g., Read 1 book = 300 pages)",
-            ["100", "500", "1000", "5000"]
-          );
-        } else {
-          setStep("CONFIRM");
-          setDraftAgenda({
-            ...draftAgenda,
-            type: AgendaType.BOOLEAN,
-            targetVal: 1,
-            unit: "check-in",
-          });
-          addBotMessage(
-            `Understood. A habit called "${draftAgenda.title}". You'll get 3 "Life Happens" tokens per month. Ready to start?`,
-            ["Yes, let's go!", "Cancel"]
-          );
+      // 3. Handle specific Agendas creation
+      if (is_ready && agendas && agendas.length > 0) {
+        // Add final bot message
+        if (message) {
+            setMessages((prev) => [
+                ...prev,
+                { id: generateId(), text: message, sender: "bot" },
+            ]);
         }
-        break;
-      }
-
-      case "TARGET": {
-        const target = parseInt(input.replace(/[^0-9]/g, ""));
-        if (isNaN(target)) {
-          addBotMessage("Please enter a valid number.");
-          return;
-        }
-        // Option 1: Store pure decomposing intent
-        setDraftAgenda({ ...draftAgenda, totalTarget: target });
-        setStep("UNIT");
-        addBotMessage("What is the unit? (e.g., pages, minutes, km)", [
-          "pages",
-          "minutes",
-          "hours",
-        ]);
-        break;
-      }
-
-      case "UNIT": {
-        setDraftAgenda({ ...draftAgenda, unit: input });
-        setStep("CONFIRM");
-        const safeTotal = draftAgenda.totalTarget || 0;
-
-        // "Magic Number" logic (for now, as per Senior Engineer Advice)
-        // Future: Ask for duration
-        const duration = 30;
-        const dailyTarget = safeTotal > 0 ? Math.ceil(safeTotal / duration) : 0;
-
-        addBotMessage(
-          `Perfect. To reach ${safeTotal} ${input} in ${duration} days, you'll need to do about ${dailyTarget} ${input} per day. Ready?`,
-          ["Yes", "Cancel"]
-        );
-
-        break;
-      }
-
-      case "CONFIRM":
-        if (input.toLowerCase().includes("yes")) {
-          const newAgenda: Agenda = {
+        
+        // Process Agendas
+        const newAgendas: Agenda[] = agendas.map((raw: any) => ({
             id: generateId(),
-            title: draftAgenda.title || "Untitled",
-            type: draftAgenda.type || AgendaType.BOOLEAN,
-            bufferTokens: 3,
-            startDate: getTodayDateString(),
+            title: raw.title || "New Goal",
+            type: raw.type as AgendaType,
+            priority: raw.priority,
+            totalTarget: raw.totalTarget,
+            targetVal: raw.targetVal || 1,
+            unit: raw.unit || "check-in",
             frequency: "daily",
-            totalTarget: draftAgenda.totalTarget,
-            unit: draftAgenda.unit,
-          };
-          onComplete(newAgenda);
-        } else {
-          onCancel();
+            startDate: getTodayDateString(),
+            bufferTokens: raw.bufferTokens || 0,
+            isRecurring: raw.isRecurring ?? true,
+        }));
+
+        // Allow user to read the message for a moment before completing
+        setTimeout(() => {
+            onComplete(newAgendas);
+        }, 1500);
+
+      } else {
+        // Just a conversation reply
+        setMessages((prev) => [
+          ...prev,
+          { id: generateId(), text: message, sender: "bot" },
+        ]);
+      }
+
+    } catch (error: any) {
+      console.error("AI Error:", error);
+      setIsTyping(false);
+
+      let errorMessage = "Could not connect to the Goal Coach. Please try again.";
+      
+      // Attempt to extract real error message from Supabase response
+      if (error?.context?.json) {
+        try {
+            const body = await error.context.json();
+            if (body?.error) {
+                errorMessage = `AI Error: ${body.error}`;
+            }
+        } catch (e) {
+            console.log("Failed to parse error body", e);
         }
-        break;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert("Connection Error", errorMessage);
     }
   };
 
@@ -203,21 +169,6 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
             {item.text}
           </Text>
         </View>
-
-        {/* Quick Replies */}
-        {!isUser && item.options && (
-          <View style={styles.quickReplyContainer}>
-            {item.options.map((opt) => (
-              <TouchableOpacity
-                key={opt}
-                onPress={() => handleSend(opt)}
-                style={styles.quickReplyChip}
-              >
-                <Text style={styles.quickReplyText}>{opt}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
       </View>
     );
   };
@@ -263,14 +214,14 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
               onChangeText={setInputValue}
               placeholder="Type here..."
               placeholderTextColor={theme.onSurfaceVariant + "80"}
-              onSubmitEditing={() => handleSend(inputValue)}
+              onSubmitEditing={() => !isTyping && handleSend(inputValue)}
             />
             <TouchableOpacity
               onPress={() => handleSend(inputValue)}
               disabled={!inputValue.trim() || isTyping}
               style={[
                 styles.sendBtn,
-                !inputValue.trim() && styles.sendBtnDisabled,
+                (!inputValue.trim() || isTyping) && styles.sendBtnDisabled,
               ]}
             >
               <Send
@@ -357,25 +308,6 @@ const getStyles = (theme: any) =>
     },
     botText: {
       color: theme.onSurface,
-    },
-    quickReplyContainer: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      marginTop: 8,
-      gap: 8,
-    },
-    quickReplyChip: {
-      backgroundColor: theme.surface,
-      borderWidth: 1,
-      borderColor: theme.outline + "40",
-      borderRadius: 20,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-    },
-    quickReplyText: {
-      color: theme.primary,
-      fontSize: 14,
-      fontWeight: "500",
     },
     typingContainer: {
       marginLeft: 0,

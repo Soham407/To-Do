@@ -66,14 +66,15 @@ const GoalSettingsModal: React.FC<Props> = ({
     if (agenda) {
       setTitle(agenda.title);
       setTarget(
-        agenda.totalTarget
+        agenda.targetVal
+          ? agenda.targetVal.toString()
+          : agenda.totalTarget
           ? Math.ceil(agenda.totalTarget / DAYS_IN_MONTH).toString()
           : ""
       );
       setRecurrencePattern(agenda.recurrencePattern || "DAILY");
       setRecurrenceDays(agenda.recurrenceDays || []);
 
-      // Determine existing reminder
       // Determine existing reminder
       if (agenda.reminderTime) {
         if (agenda.reminderTime.includes("T")) {
@@ -108,9 +109,6 @@ const GoalSettingsModal: React.FC<Props> = ({
         recurrencePattern === "CUSTOM" ? recurrenceDays : undefined,
     };
 
-    // Set reminder time
-    // Set reminder time
-    // Set reminder time
     if (reminderTime) {
       updates.reminderTime = reminderTime.toISOString();
     } else {
@@ -126,7 +124,13 @@ const GoalSettingsModal: React.FC<Props> = ({
         );
         return;
       }
-      updates.totalTarget = parseInt(trimmedTarget, 10) * DAYS_IN_MONTH;
+      const newTargetVal = parseInt(trimmedTarget, 10);
+      updates.targetVal = newTargetVal;
+      
+      // If totalTarget exists, keep it consistent, otherwise initialize it
+      if (!updates.totalTarget) {
+          updates.totalTarget = newTargetVal * DAYS_IN_MONTH; 
+      }
     }
     onUpdateAgenda(updates);
     onClose();
