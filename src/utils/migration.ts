@@ -92,6 +92,13 @@ export const migrateLocalDataToSupabase = async () => {
         target_val: agenda.targetVal || null,
         frequency: agenda.frequency,
         start_date: agenda.startDate,
+        priority: agenda.priority || "MEDIUM",
+        due_date: agenda.due_date || null,
+        is_recurring:
+          agenda.isRecurring !== undefined ? agenda.isRecurring : true,
+        recurrence_pattern: agenda.recurrencePattern || "DAILY",
+        recurrence_days: agenda.recurrenceDays || null,
+        reminder_time: agenda.reminderTime || null,
         status: "ACTIVE",
       };
     })
@@ -144,6 +151,46 @@ export const migrateLocalDataToSupabase = async () => {
       if (taskError) {
         console.error("Error migrating tasks:", taskError);
         throw taskError;
+      }
+    }
+
+    // 5. Insert Subtasks
+    // We need to flatten ALL subtasks from ALL tasks
+    const subtaskRows: any[] = [];
+
+    for (const task of tasks) {
+      if (
+        task.subtasks &&
+        task.subtasks.length > 0 &&
+        agendaIdMap.has(task.agendaId)
+      ) {
+        // We need the NEW task ID for the subtask foreign key.
+        // Since we generated deterministic UUIDs for tasks based on their ID, we can re-derive it.
+        const taskId = await getDeterministicUUID(task.id);
+
+        for (const sub of task.subtasks) {
+          const subId = await getDeterministicUUID(sub.id);
+          subtaskRows.push({
+            id: subId,
+            task_id: taskId,
+            title: sub.title,
+            is_completed: sub.isCompleted,
+            created_at: new Date().toISOString(), // Or separate ID if we tracked it
+          });
+        }
+      }
+    }
+
+    if (subtaskRows.length > 0) {
+      const { error: subtaskError } = await supabase
+        .from("subtasks")
+        .upsert(subtaskRows, { onConflict: "id" });
+
+      if (subtaskError) {
+        console.error("Error migrating subtasks:", subtaskError);
+        // Don't throw, partial success is better than failure here?
+        // Better to throw to retry later.
+        throw subtaskError;
       }
     }
   }

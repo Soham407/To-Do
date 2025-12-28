@@ -7,7 +7,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LayoutDashboard, Plus, PieChart } from "lucide-react-native";
+import { LayoutDashboard, Target, PieChart } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 
 interface LayoutProps {
@@ -63,7 +63,7 @@ const Layout: React.FC<LayoutProps> = ({
                 activeTab === "onboarding" && styles.navButtonActive,
               ]}
             >
-              <Plus
+              <Target
                 size={28}
                 color={getIconColor(activeTab === "onboarding")}
                 strokeWidth={activeTab === "onboarding" ? 3 : 2.5}

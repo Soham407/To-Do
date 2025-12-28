@@ -34,6 +34,13 @@ const GoalSettingsModal: React.FC<Props> = ({
   const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [title, setTitle] = useState("");
   const [target, setTarget] = useState("");
+  const [recurrencePattern, setRecurrencePattern] = useState<
+    "DAILY" | "WEEKLY" | "WEEKDAYS" | "CUSTOM"
+  >("DAILY");
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
+  const [reminderOption, setReminderOption] = useState<
+    "None" | "Morning" | "Afternoon" | "Evening"
+  >("None");
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   // Sync state when agenda opens
@@ -45,6 +52,21 @@ const GoalSettingsModal: React.FC<Props> = ({
           ? Math.ceil(agenda.totalTarget / DAYS_IN_MONTH).toString()
           : ""
       );
+      setRecurrencePattern(agenda.recurrencePattern || "DAILY");
+      setRecurrenceDays(agenda.recurrenceDays || []);
+
+      // Determine existing reminder
+      if (agenda.reminderTime) {
+        const d = new Date(agenda.reminderTime);
+        const h = d.getHours();
+        if (h === 9) setReminderOption("Morning");
+        else if (h === 13) setReminderOption("Afternoon");
+        else if (h === 18) setReminderOption("Evening");
+        else setReminderOption("None"); // Or Custom if we supported it
+      } else {
+        setReminderOption("None");
+      }
+
       setIsConfirmingDelete(false);
     }
   }, [agenda]);
@@ -52,9 +74,33 @@ const GoalSettingsModal: React.FC<Props> = ({
   if (!isOpen || !agenda) return null;
 
   const isNumeric = agenda.type === AgendaType.NUMERIC;
+  const isOneOff = agenda.type === AgendaType.ONE_OFF;
+  const itemLabel = isOneOff ? "Task" : "Goal";
 
   const handleSave = () => {
-    const updates: Agenda = { ...agenda, title };
+    const updates: Agenda = {
+      ...agenda,
+      title,
+      recurrencePattern,
+      recurrenceDays:
+        recurrencePattern === "CUSTOM" ? recurrenceDays : undefined,
+    };
+
+    // Set reminder time
+    if (reminderOption !== "None") {
+      const d = new Date(); // Use today as base for time-of-day
+      d.setSeconds(0);
+      d.setMilliseconds(0);
+
+      if (reminderOption === "Morning") d.setHours(9, 0);
+      else if (reminderOption === "Afternoon") d.setHours(13, 0);
+      else if (reminderOption === "Evening") d.setHours(18, 0);
+
+      updates.reminderTime = d.toISOString();
+    } else {
+      updates.reminderTime = undefined;
+    }
+
     if (isNumeric && target) {
       const trimmedTarget = target.trim();
       if (!/^\d+$/.test(trimmedTarget)) {
@@ -89,19 +135,114 @@ const GoalSettingsModal: React.FC<Props> = ({
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
           <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Goal Settings</Text>
+            <Text style={styles.headerTitle}>{itemLabel} Settings</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <X size={24} color={theme.onSurfaceVariant} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Goal Name</Text>
+            <Text style={styles.label}>{itemLabel} Name</Text>
             <TextInput
               style={styles.input}
               value={title}
               onChangeText={setTitle}
             />
+          </View>
+
+          {/* Recurrence Settings (Hidden for One-Off if desired, but let's allow editing for flexibility if user wants to convert) */}
+          {!isOneOff && (
+            <View style={styles.section}>
+              <Text style={styles.label}>Frequency</Text>
+              <View style={styles.chipsContainer}>
+                {(["DAILY", "WEEKDAYS", "WEEKLY", "CUSTOM"] as const).map(
+                  (p) => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[
+                        styles.chip,
+                        recurrencePattern === p && styles.chipSelected,
+                      ]}
+                      onPress={() => setRecurrencePattern(p)}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          recurrencePattern === p && styles.chipTextSelected,
+                        ]}
+                      >
+                        {p === "WEEKDAYS"
+                          ? "Mon-Fri"
+                          : p.charAt(0) + p.slice(1).toLowerCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                )}
+              </View>
+
+              {recurrencePattern === "CUSTOM" && (
+                <View style={styles.daysContainer}>
+                  {["S", "M", "T", "W", "T", "F", "S"].map((day, idx) => {
+                    const isSelected = recurrenceDays.includes(idx);
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        style={[
+                          styles.dayCircle,
+                          isSelected && styles.dayCircleSelected,
+                        ]}
+                        onPress={() => {
+                          if (isSelected) {
+                            setRecurrenceDays((prev) =>
+                              prev.filter((d) => d !== idx)
+                            );
+                          } else {
+                            setRecurrenceDays((prev) => [...prev, idx]);
+                          }
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dayText,
+                            isSelected && styles.dayTextSelected,
+                          ]}
+                        >
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Reminder Section (New) */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Reminder</Text>
+            <View style={styles.chipsContainer}>
+              {(["None", "Morning", "Afternoon", "Evening"] as const).map(
+                (r) => (
+                  <TouchableOpacity
+                    key={r}
+                    style={[
+                      styles.chip,
+                      reminderOption === r && styles.chipSelected,
+                    ]}
+                    onPress={() => setReminderOption(r)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        reminderOption === r && styles.chipTextSelected,
+                      ]}
+                    >
+                      {r}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              )}
+            </View>
           </View>
 
           {isNumeric && (
@@ -131,7 +272,7 @@ const GoalSettingsModal: React.FC<Props> = ({
               style={styles.deleteBtnInitial}
             >
               <Trash2 size={18} color={theme.error} />
-              <Text style={styles.deleteBtnText}>Delete Goal</Text>
+              <Text style={styles.deleteBtnText}>Delete {itemLabel}</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.deleteConfirmRow}>
@@ -205,6 +346,59 @@ const getStyles = (theme: ThemeType) =>
       fontSize: 16,
       color: theme.onSurface,
       padding: 0,
+    },
+    section: {
+      marginBottom: 16,
+    },
+    chipsContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 4,
+    },
+    chip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.outline + "40",
+    },
+    chipSelected: {
+      backgroundColor: theme.primaryContainer,
+      borderColor: theme.primary,
+    },
+    chipText: {
+      fontSize: 12,
+      color: theme.onSurfaceVariant,
+    },
+    chipTextSelected: {
+      color: theme.onPrimaryContainer,
+      fontWeight: "500",
+    },
+    daysContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: 12,
+      paddingHorizontal: 4,
+    },
+    dayCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: theme.surfaceContainerHighest,
+    },
+    dayCircleSelected: {
+      backgroundColor: theme.primary,
+    },
+    dayText: {
+      fontSize: 12,
+      color: theme.onSurface,
+    },
+    dayTextSelected: {
+      color: theme.onPrimary,
+      fontWeight: "600",
     },
     saveBtn: {
       backgroundColor: theme.primary,
