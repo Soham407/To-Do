@@ -20,6 +20,37 @@ export const getLocalDateString = (date: Date = new Date()) => {
 
 export const getTodayDateString = () => getLocalDateString(new Date());
 
+export const parseLocalIsoDate = (isoDateStr: string): Date => {
+  const [y, m, d] = isoDateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+export const isDateInRecurrence = (date: Date, agenda: Agenda): boolean => {
+  // Always include start date? Or respect pattern? Usually start date implies participation.
+  // But let's strictly follow pattern.
+
+  if (agenda.type === AgendaType.ONE_OFF) return true; // Handled separately usually
+
+  const pattern = agenda.recurrencePattern || "DAILY";
+  const day = date.getDay(); // 0 = Sunday
+
+  if (pattern === "DAILY") return true;
+  if (pattern === "WEEKLY") {
+    // Create only on same day of week as startDate
+    const startDay = parseLocalIsoDate(agenda.startDate).getDay();
+    return day === startDay;
+  }
+  if (pattern === "WEEKDAYS") {
+    return day >= 1 && day <= 5;
+  }
+  if (pattern === "CUSTOM") {
+    if (!agenda.recurrenceDays || agenda.recurrenceDays.length === 0)
+      return false;
+    return agenda.recurrenceDays.includes(day);
+  }
+  return true;
+};
+
 export const getDailyTarget = (agenda: Agenda): number => {
   if (agenda.type === AgendaType.NUMERIC) {
     if (agenda.totalTarget) {
@@ -27,7 +58,8 @@ export const getDailyTarget = (agenda: Agenda): number => {
     }
     return 10; // Default placeholder
   }
-  return 1; // Boolean is always 1
+  // Boolean and One-Off are always 1 (Done/Not Done)
+  return 1;
 };
 
 export const createInitialTasks = (
@@ -38,17 +70,43 @@ export const createInitialTasks = (
   const today = new Date();
   const dailyTarget = getDailyTarget(agenda);
 
-  for (let i = 0; i < days; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + i);
+  // 1. HANDLE ONE-OFF TASKS
+  // If it's not recurring, we only create ONE task for the specific due date (or today)
+  if (agenda.type === AgendaType.ONE_OFF || agenda.isRecurring === false) {
+    // Use agenda.dueDate if available, otherwise default to today
+    const taskDate = agenda.due_date
+      ? parseLocalIsoDate(agenda.due_date)
+      : today;
+
     tasks.push({
       id: generateId(),
       agendaId: agenda.id,
-      scheduledDate: getLocalDateString(date),
+      scheduledDate: getLocalDateString(taskDate),
       targetVal: dailyTarget,
       actualVal: 0,
       status: TaskStatus.PENDING,
+      subtasks: [],
     });
+
+    return tasks;
+  }
+
+  // 2. HANDLE REGULAR RECURRING HABITS (Existing Logic)
+  for (let i = 0; i < days; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+
+    if (isDateInRecurrence(date, agenda)) {
+      tasks.push({
+        id: generateId(),
+        agendaId: agenda.id,
+        scheduledDate: getLocalDateString(date),
+        targetVal: dailyTarget,
+        actualVal: 0,
+        status: TaskStatus.PENDING,
+        subtasks: [],
+      });
+    }
   }
   return tasks;
 };
@@ -62,12 +120,21 @@ export const ensureTasksForDate = (
   const newTasks: DailyTask[] = [];
 
   agendas.forEach((agenda) => {
+    // SKIP ONE-OFF AGENDAS
+    // One-off tasks are manually scheduled. We should NOT auto-generate them just because they are missing for "today".
+    if (agenda.type === AgendaType.ONE_OFF || agenda.isRecurring === false) {
+      return;
+    }
+
     // Check if a task exists for this agenda on the given date
     const hasTask = tasks.some(
       (t) => t.agendaId === agenda.id && t.scheduledDate === dateStr
     );
 
-    if (!hasTask) {
+    const targetDate = parseLocalIsoDate(dateStr);
+
+    // We only create if it DOESN'T exist AND it matches recurrence
+    if (!hasTask && isDateInRecurrence(targetDate, agenda)) {
       newTasks.push({
         id: generateId(),
         agendaId: agenda.id,
@@ -75,6 +142,7 @@ export const ensureTasksForDate = (
         targetVal: getDailyTarget(agenda),
         actualVal: 0,
         status: TaskStatus.PENDING,
+        subtasks: [],
       });
     }
   });

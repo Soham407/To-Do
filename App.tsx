@@ -5,16 +5,18 @@ import Layout from "./src/components/Layout";
 import Dashboard from "./src/components/Dashboard";
 import OnboardingChat from "./src/components/OnboardingChat";
 import ReportView from "./src/components/ReportView";
-import { Agenda, DailyTask, AgendaType } from "./src/types";
+import { Agenda, DailyTask, AgendaType, Priority } from "./src/types";
 import { ThemeProvider } from "./src/context/ThemeContext";
 import {
   createInitialTasks,
   recalculateNumericTasks,
   ensureTasksForDate,
   getTodayDateString,
+  generateId,
 } from "./src/utils/logic";
 import { StatusBar } from "expo-status-bar";
 import { migrateLocalDataToSupabase } from "./src/utils/migration";
+import { NotificationService } from "./src/services/NotificationService"; // Import Service
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/components/LoginScreen";
@@ -214,6 +216,34 @@ function MainApp() {
     setTasks((prev) => prev.filter((t) => t.agendaId !== id));
   };
 
+  const handleCreateTask = (
+    title: string,
+    dueDate: string,
+    priority: Priority,
+    reminderTime?: string
+  ) => {
+    const newAgenda: Agenda = {
+      id: generateId(),
+      title,
+      type: AgendaType.ONE_OFF,
+      priority,
+      due_date: dueDate,
+      isRecurring: false,
+      bufferTokens: 0,
+      startDate: getTodayDateString(),
+      frequency: "daily",
+      targetVal: 1,
+      reminderTime: reminderTime,
+    };
+    handleAgendaCreated(newAgenda);
+
+    if (reminderTime && reminderTime.trim() !== "") {
+      NotificationService.scheduleTaskReminder(newAgenda).catch((err) => {
+        console.error("Failed to schedule notification for new task:", err);
+      });
+    }
+  };
+
   if (loading || authLoading) return null; // Or splash screen
 
   if (!session) {
@@ -254,6 +284,7 @@ function MainApp() {
             onUpdateAgenda={handleUpdateAgenda}
             onDeleteAgenda={handleDeleteAgenda}
             isNewUser={isNewUser}
+            onCreateTask={handleCreateTask}
           />
         );
       case "report":

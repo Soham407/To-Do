@@ -15,9 +15,11 @@ import {
   TaskStatus,
   FailureTag,
   AgendaType,
+  Subtask,
 } from "../types";
 import { useTheme } from "../context/ThemeContext";
-import { X, Check } from "lucide-react-native";
+import { X, Check, Plus, Trash } from "lucide-react-native";
+import { generateId } from "../utils/logic";
 
 interface Props {
   isOpen: boolean;
@@ -29,6 +31,7 @@ interface Props {
     strategy?: "TOMORROW" | "SPREAD",
     useBuffer?: boolean
   ) => void;
+  onDeleteAgenda?: (id: string) => void;
 }
 
 const CheckInModal: React.FC<Props> = ({
@@ -37,6 +40,7 @@ const CheckInModal: React.FC<Props> = ({
   task,
   agenda,
   onUpdateTask,
+  onDeleteAgenda,
 }) => {
   const { theme } = useTheme();
   const styles = React.useMemo(() => getStyles(theme), [theme]);
@@ -46,6 +50,10 @@ const CheckInModal: React.FC<Props> = ({
   >(null);
   const [useBuffer, setUseBuffer] = useState(false);
   const [selectedTag, setSelectedTag] = useState<FailureTag>(FailureTag.NONE);
+  const [newItemText, setNewItemText] = useState("");
+
+  // Local subtasks state
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
 
   useEffect(() => {
     if (task) {
@@ -59,6 +67,7 @@ const CheckInModal: React.FC<Props> = ({
       setSelectedStrategy(null);
       setUseBuffer(false);
       setSelectedTag(FailureTag.NONE);
+      setSubtasks(task.subtasks || []);
     }
   }, [task]);
 
@@ -104,6 +113,7 @@ const CheckInModal: React.FC<Props> = ({
       actualVal: currentVal,
       status: status,
       failureTag: isShortfall ? selectedTag : FailureTag.NONE,
+      subtasks: subtasks,
     };
 
     onUpdateTask(
@@ -112,6 +122,44 @@ const CheckInModal: React.FC<Props> = ({
       useBuffer
     );
     onClose();
+  };
+
+  const handleAddSubtask = () => {
+    if (!newItemText.trim()) return;
+    const newItem: Subtask = {
+      id: generateId(),
+      taskId: task.id,
+      title: newItemText.trim(),
+      isCompleted: false,
+    };
+    setSubtasks([...subtasks, newItem]);
+    setNewItemText("");
+  };
+
+  const handleToggleSubtask = (id: string) => {
+    setSubtasks((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, isCompleted: !s.isCompleted } : s))
+    );
+  };
+
+  const handleDeleteSubtask = (id: string) => {
+    setSubtasks((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleDeleteOneOff = () => {
+    Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          if (onDeleteAgenda && agenda) {
+            onDeleteAgenda(agenda.id);
+            onClose();
+          }
+        },
+      },
+    ]);
   };
 
   const renderFailureTags = () => (
@@ -260,9 +308,21 @@ const CheckInModal: React.FC<Props> = ({
                   </Text>
                 </Text>
               </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <X size={24} color={theme.onSurfaceVariant} />
-              </TouchableOpacity>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 16 }}
+              >
+                {onDeleteAgenda && (
+                  <TouchableOpacity
+                    onPress={handleDeleteOneOff}
+                    style={{ padding: 4 }}
+                  >
+                    <Trash size={20} color={theme.error} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                  <X size={24} color={theme.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Input Section */}
@@ -279,6 +339,66 @@ const CheckInModal: React.FC<Props> = ({
                   autoFocus
                 />
                 <Text style={styles.unitText}>{agenda.unit || "units"}</Text>
+              </View>
+            </View>
+
+            {/* Subtasks Section for One-Off Tasks (or any task technically) */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Checklist</Text>
+
+              {subtasks.map((sub) => (
+                <View key={sub.id} style={styles.subtaskRow}>
+                  <TouchableOpacity
+                    onPress={() => handleToggleSubtask(sub.id)}
+                    style={styles.checkboxTouch}
+                  >
+                    <View
+                      style={[
+                        styles.checkbox,
+                        sub.isCompleted && {
+                          backgroundColor: theme.primary,
+                          borderColor: theme.primary,
+                        },
+                      ]}
+                    >
+                      {sub.isCompleted && (
+                        <Check size={12} color={theme.onPrimary} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.subtaskText,
+                      sub.isCompleted && styles.textStrikethrough,
+                    ]}
+                  >
+                    {sub.title}
+                  </Text>
+                  <TouchableOpacity onPress={() => handleDeleteSubtask(sub.id)}>
+                    <Trash
+                      size={16}
+                      color={theme.error}
+                      style={{ opacity: 0.5 }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <View style={styles.addSubtaskRow}>
+                <TextInput
+                  style={styles.addSubtaskInput}
+                  placeholder="Add subtask..."
+                  placeholderTextColor={theme.onSurfaceVariant}
+                  value={newItemText}
+                  onChangeText={setNewItemText}
+                  onSubmitEditing={handleAddSubtask}
+                />
+                <TouchableOpacity
+                  onPress={handleAddSubtask}
+                  style={styles.addBtn}
+                >
+                  <Plus size={20} color={theme.primary} />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -329,7 +449,7 @@ const getStyles = (theme: any) =>
     header: {
       flexDirection: "row",
       justifyContent: "space-between",
-      alignItems: "flex-start",
+      alignItems: "center",
       marginBottom: 24,
     },
     title: {
@@ -487,6 +607,52 @@ const getStyles = (theme: any) =>
       fontSize: 16,
       color: theme.onPrimary,
       fontWeight: "600",
+    },
+    subtaskRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.outline + "10",
+    },
+    checkboxTouch: {
+      padding: 4,
+    },
+    checkbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 4,
+      borderWidth: 2,
+      borderColor: theme.outline,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+    },
+    subtaskText: {
+      flex: 1,
+      fontSize: 16,
+      color: theme.onSurface,
+    },
+    textStrikethrough: {
+      textDecorationLine: "line-through",
+      color: theme.onSurfaceVariant,
+    },
+    addSubtaskRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 12,
+    },
+    addSubtaskInput: {
+      flex: 1,
+      fontSize: 14,
+      color: theme.onSurface,
+      padding: 8,
+      backgroundColor: theme.surfaceContainerLow,
+      borderRadius: 8,
+    },
+    addBtn: {
+      padding: 8,
+      marginLeft: 8,
     },
   });
 

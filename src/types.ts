@@ -1,6 +1,13 @@
 export enum AgendaType {
   NUMERIC = "NUMERIC",
   BOOLEAN = "BOOLEAN",
+  ONE_OFF = "ONE_OFF",
+}
+
+export enum Priority {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
 }
 
 export enum TaskStatus {
@@ -20,16 +27,30 @@ export enum FailureTag {
   NONE = "NONE",
 }
 
+export interface Subtask {
+  id: string;
+  taskId: string;
+  title: string;
+  isCompleted: boolean;
+}
+
 export interface Agenda {
   id: string;
   title: string;
   type: AgendaType;
+  listId?: string; // Optional foreign key to List
+  priority?: Priority;
+  due_date?: string; // ISO Date string for one-off tasks
+  isRecurring?: boolean; // Default true for goals, false for tasks
   bufferTokens: number;
   totalTarget?: number; // For numeric goals like "Read 500 pages"
   unit?: string; // e.g., "pages", "minutes"
   targetVal?: number; // Daily target value (redundant if calculated from totalTarget, but useful for caching)
   frequency: "daily"; // MVP assumes daily for now
   startDate: string; // ISO Date string
+  recurrencePattern?: "DAILY" | "WEEKLY" | "WEEKDAYS" | "CUSTOM";
+  recurrenceDays?: number[]; // 0 = Sunday, 1 = Monday, etc.
+  reminderTime?: string; // ISO String for one-off, or time-of-day reference for recurring
 }
 
 export interface DailyTask {
@@ -43,6 +64,7 @@ export interface DailyTask {
   note?: string;
   mood?: "😢" | "😕" | "😐" | "🙂" | "🤩";
   wasRecalculated?: boolean;
+  subtasks?: Subtask[];
 }
 
 export interface ChatMessage {

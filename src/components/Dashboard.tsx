@@ -21,11 +21,16 @@ import {
   Calendar as CalendarIcon,
   Sparkles,
   UserCircle,
+  Square,
+  CheckSquare,
+  Search,
 } from "lucide-react-native";
+import { TextInput } from "react-native";
 import CheckInModal from "./CheckInModal";
 import CalendarModal from "./CalendarModal";
 import GoalSettingsModal from "./GoalSettingsModal";
 import ProfileModal from "./ProfileModal";
+import QuickAddModal from "./QuickAddModal";
 import { getLocalDateString } from "../utils/logic";
 import { useTheme } from "../context/ThemeContext";
 
@@ -42,6 +47,7 @@ interface DashboardProps {
   onUpdateAgenda: (id: string, updates: Partial<Agenda>) => void;
   onDeleteAgenda: (id: string) => void;
   isNewUser?: boolean;
+  onCreateTask: (title: string, dueDate: string, priority: any) => void;
 }
 
 // Internal component to handle individual progress bar
@@ -71,6 +77,7 @@ interface TaskCardProps {
   agenda: Agenda;
   onClick: (task: DailyTask) => void;
   onSettingsClick: () => void;
+  onToggleStatus: (task: DailyTask) => void;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -78,6 +85,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   agenda,
   onClick,
   onSettingsClick,
+  onToggleStatus,
 }) => {
   const { theme } = useTheme();
   const styles = React.useMemo(() => getStyles(theme), [theme]);
@@ -126,6 +134,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
     return <Check size={14} color={iconColor} strokeWidth={3} />;
   };
 
+  const isOneOff = agenda.type === AgendaType.ONE_OFF;
+
   return (
     <TouchableOpacity
       onPress={() => onClick(task)}
@@ -133,22 +143,38 @@ const TaskCard: React.FC<TaskCardProps> = ({
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardLeft}>
-          {/* Icon Box */}
-          <View
-            style={[
-              styles.iconBox,
-              {
-                backgroundColor: iconBg,
-                borderColor:
-                  task.status === TaskStatus.PENDING
-                    ? theme.outline
-                    : "transparent",
-                borderWidth: task.status === TaskStatus.PENDING ? 1 : 0,
-              },
-            ]}
-          >
-            {renderIcon()}
-          </View>
+          {/* Icon Box or Checkbox */}
+          {isOneOff ? (
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation(); // Prevent opening modal
+                onToggleStatus(task);
+              }}
+              style={{ padding: 4, marginLeft: -4 }}
+            >
+              {task.status === TaskStatus.COMPLETED ? (
+                <CheckSquare size={24} color={theme.primary} />
+              ) : (
+                <Square size={24} color={theme.outline} />
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View
+              style={[
+                styles.iconBox,
+                {
+                  backgroundColor: iconBg,
+                  borderColor:
+                    task.status === TaskStatus.PENDING
+                      ? theme.outline
+                      : "transparent",
+                  borderWidth: task.status === TaskStatus.PENDING ? 1 : 0,
+                },
+              ]}
+            >
+              {renderIcon()}
+            </View>
+          )}
 
           <View style={{ flex: 1 }}>
             <Text
@@ -165,10 +191,81 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 ? `${task.targetVal} ${agenda.unit || "units"}`
                 : "Daily"}
             </Text>
+
+            {/* Subtask Progress Mini Bar */}
+            {isOneOff && task.subtasks && task.subtasks.length > 0 && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginTop: 4,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    color: theme.onSurfaceVariant,
+                    marginRight: 4,
+                  }}
+                >
+                  {task.subtasks.filter((s) => s.isCompleted).length}/
+                  {task.subtasks.length}
+                </Text>
+                <View
+                  style={{
+                    height: 4,
+                    width: 40,
+                    backgroundColor: theme.surfaceVariant,
+                    borderRadius: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      height: 4,
+                      width: `${
+                        (task.subtasks.filter((s) => s.isCompleted).length /
+                          task.subtasks.length) *
+                        100
+                      }%`,
+                      backgroundColor: theme.primary,
+                      borderRadius: 2,
+                    }}
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
         <View style={styles.cardRight}>
+          {/* Priority Indicator */}
+          {agenda.priority === "HIGH" && (
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: theme.error,
+                position: "absolute",
+                top: 4,
+                right: 32,
+              }}
+            />
+          )}
+          {agenda.priority === "LOW" && (
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: theme.tertiary,
+                position: "absolute",
+                top: 4,
+                right: 32,
+              }}
+            />
+          )}
+
           {task.status === TaskStatus.PENDING && (
             <ArrowRight
               size={20}
@@ -217,35 +314,123 @@ const Dashboard: React.FC<DashboardProps> = ({
   onUpdateAgenda,
   onDeleteAgenda,
   isNewUser,
+  onCreateTask,
 }) => {
   const { theme } = useTheme();
   const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [selectedTask, setSelectedTask] = useState<DailyTask | null>(null);
   const [selectedAgenda, setSelectedAgenda] = useState<Agenda | null>(null);
   const [settingsAgenda, setSettingsAgenda] = useState<Agenda | null>(null);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(
     getLocalDateString()
   );
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  /* ------------------ Filtering Logic ------------------ */
+  const [searchText, setSearchText] = useState("");
+  const [activeFilter, setActiveFilter] = useState<
+    "All" | "Today" | "Upcoming" | "Overdue" | "High Priority"
+  >("All");
+
   const [localTasks, setLocalTasks] = useState<DailyTask[]>([]);
 
   useEffect(() => {
-    const filtered = tasks.filter(
-      (t) =>
-        t.scheduledDate === selectedDate &&
-        agendas.some((a) => a.id === t.agendaId)
+    // 1. Base Filter (Date & Agenda Existence)
+    let filtered = tasks.filter((t) =>
+      agendas.some((a) => a.id === t.agendaId)
     );
-    setLocalTasks(filtered);
-  }, [tasks, selectedDate, agendas]);
+
+    // 2. Apply "Active Filter" Logic
+    const todayStr = getLocalDateString();
+
+    if (activeFilter === "Today") {
+      filtered = filtered.filter((t) => t.scheduledDate === todayStr);
+    } else if (activeFilter === "Upcoming") {
+      filtered = filtered.filter((t) => t.scheduledDate > todayStr);
+    } else if (activeFilter === "Overdue") {
+      filtered = filtered.filter(
+        (t) => t.scheduledDate < todayStr && t.status === TaskStatus.PENDING
+      );
+    } else if (activeFilter === "High Priority") {
+      filtered = filtered.filter((t) => {
+        const ag = agendas.find((a) => a.id === t.agendaId);
+        return ag?.priority === "HIGH" && t.status === TaskStatus.PENDING;
+      });
+    }
+    // "All" keeps everything (allows seeing history if we want, or default to generally showing relevant stuff)
+    // Actually, "All" usually implies "All Active" or "Current View".
+    // Let's keep "All" as "All for Selected Date" to maintain existing calendar behavior?
+    // OR, if user explicitly clicks "All", maybe they want to search global?
+    // Let's Hybridize:
+
+    // If Filter is "All" or "Today", we respect the `selectedDate` from the calendar state
+    // to map to the original design, UNLESS search text is present (then we search everything).
+
+    if (!searchText && (activeFilter === "All" || activeFilter === "Today")) {
+      filtered = filtered.filter((t) => t.scheduledDate === selectedDate);
+    }
+
+    // 3. Search Text
+    if (searchText.trim()) {
+      const lower = searchText.toLowerCase();
+      filtered = filtered.filter((t) => {
+        const ag = agendas.find((a) => a.id === t.agendaId);
+        return ag?.title.toLowerCase().includes(lower);
+      });
+    }
+
+    // 4. Sort Logic (Existing)
+    const sorted = filtered.sort((a, b) => {
+      // ... (Keep existing sort logic)
+      // 1. Status: Pending first
+      const statusScore = (status: TaskStatus) =>
+        status === TaskStatus.PENDING ? 0 : 1;
+      if (statusScore(a.status) !== statusScore(b.status)) {
+        return statusScore(a.status) - statusScore(b.status);
+      }
+
+      // 2. Priority
+      const agendaA = agendas.find((ag) => ag.id === a.agendaId);
+      const agendaB = agendas.find((ag) => ag.id === b.agendaId);
+
+      // Higher score = Higher priority
+      const priorityScore = (p?: string) => {
+        if (p === "HIGH") return 3;
+        if (p === "MEDIUM") return 2;
+        if (p === "LOW") return 1;
+        return 2; // Default Medium
+      };
+
+      const scoreA = priorityScore(agendaA?.priority);
+      const scoreB = priorityScore(agendaB?.priority);
+
+      if (scoreA !== scoreB) return scoreB - scoreA; // Descending
+
+      // 3. Date
+      return a.scheduledDate.localeCompare(b.scheduledDate);
+    });
+
+    setLocalTasks(sorted);
+  }, [tasks, selectedDate, agendas, searchText, activeFilter]);
 
   const handleTaskClick = (task: DailyTask) => {
     const agenda = agendas.find((a) => a.id === task.agendaId);
-    if (agenda && task.status === TaskStatus.PENDING) {
-      setSelectedTask(task);
-      setSelectedAgenda(agenda);
-    }
+    if (!agenda) return;
+
+    // For ONE_OFF tasks, clicking body behaves normally (opens details)
+    setSelectedTask(task);
+    setSelectedAgenda(agenda);
+  };
+
+  const handleQuickToggle = (task: DailyTask) => {
+    // Simple toggle for ONE_OFF tasks
+    const newStatus =
+      task.status === TaskStatus.COMPLETED
+        ? TaskStatus.PENDING
+        : TaskStatus.COMPLETED;
+    onUpdateTask({ ...task, status: newStatus });
   };
 
   const isToday = selectedDate === getLocalDateString();
@@ -258,58 +443,73 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => setIsCalendarOpen(true)}
-          style={styles.dateSelector}
-        >
-          <Text style={styles.dateSubtext}>
-            {formattedDate}{" "}
-            <ChevronDown size={16} color={theme.onSurfaceVariant} />
-          </Text>
-          <Text style={styles.dateTitle}>
-            {isToday ? "Today" : "Your Plan"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setIsProfileOpen(true)}
-          style={styles.profileBtn}
-        >
-          <UserCircle size={32} color={theme.onSurfaceVariant} />
-        </TouchableOpacity>
-      </View>
+      {/* Header & Controls */}
+      <View style={styles.headerWrapper}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => setIsCalendarOpen(true)}
+            style={styles.dateSelector}
+          >
+            <Text style={styles.dateSubtext}>
+              {formattedDate}{" "}
+              <ChevronDown size={16} color={theme.onSurfaceVariant} />
+            </Text>
+            <Text style={styles.dateTitle}>
+              {isToday ? "Today" : "Your Plan"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setIsProfileOpen(true)}
+            style={styles.profileBtn}
+          >
+            <UserCircle size={32} color={theme.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
 
-      {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View
-          style={[
-            styles.statCard,
-            { backgroundColor: theme.surfaceContainerHigh },
-          ]}
-        >
-          <Text style={styles.statNumber}>
-            {localTasks.filter((t) => t.status === TaskStatus.PENDING).length}
-          </Text>
-          <Text style={styles.statLabel}>Remaining</Text>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search tasks..."
+            placeholderTextColor={theme.onSurfaceVariant}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
         </View>
-        <View
-          style={[styles.statCard, { backgroundColor: theme.primaryContainer }]}
+
+        {/* Filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+          contentContainerStyle={{ gap: 8, paddingBottom: 8 }}
         >
-          <Text
-            style={[styles.statNumber, { color: theme.onPrimaryContainer }]}
-          >
-            {localTasks.filter((t) => t.status === TaskStatus.COMPLETED).length}
-          </Text>
-          <Text
-            style={[
-              styles.statLabel,
-              { color: theme.onPrimaryContainer, opacity: 0.7 },
-            ]}
-          >
-            Completed
-          </Text>
-        </View>
+          {(
+            ["All", "Today", "Upcoming", "Overdue", "High Priority"] as const
+          ).map((f) => (
+            <TouchableOpacity
+              key={f}
+              style={[
+                styles.filterChip,
+                activeFilter === f && styles.filterChipActive,
+              ]}
+              onPress={() => {
+                setActiveFilter(f);
+                // If switching to Today/All, sync Date?
+                if (f === "Today") setSelectedDate(getLocalDateString());
+              }}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  activeFilter === f && styles.filterTextActive,
+                ]}
+              >
+                {f}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {/* List */}
@@ -355,6 +555,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     agenda={agenda}
                     onClick={handleTaskClick}
                     onSettingsClick={() => setSettingsAgenda(agenda)}
+                    onToggleStatus={handleQuickToggle}
                   />
                 </View>
               );
@@ -372,6 +573,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         task={selectedTask}
         agenda={selectedAgenda}
         onUpdateTask={onUpdateTask}
+        onDeleteAgenda={onDeleteAgenda}
       />
 
       <CalendarModal
@@ -393,6 +595,19 @@ const Dashboard: React.FC<DashboardProps> = ({
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
       />
+
+      <QuickAddModal
+        isOpen={isQuickAddOpen}
+        onClose={() => setIsQuickAddOpen(false)}
+        onCreateTask={onCreateTask}
+      />
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setIsQuickAddOpen(true)}
+      >
+        <Plus size={32} color={theme.onPrimaryContainer} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -404,12 +619,49 @@ const getStyles = (theme: any) =>
       padding: 16,
       backgroundColor: theme.background, // Explicit background
     },
+    headerWrapper: {
+      marginBottom: 16,
+    },
     header: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "flex-start",
-      paddingTop: 8,
-      marginBottom: 24,
+      marginTop: 8,
+      marginBottom: 16,
+    },
+    searchContainer: {
+      marginBottom: 12,
+      backgroundColor: theme.surfaceContainerHigh,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+    },
+    searchInput: {
+      fontSize: 16,
+      color: theme.onSurface,
+    },
+    filterScroll: {
+      marginBottom: 8,
+    },
+    filterChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 100,
+      backgroundColor: theme.surfaceContainer,
+      borderWidth: 1,
+      borderColor: "transparent",
+    },
+    filterChipActive: {
+      backgroundColor: theme.secondaryContainer,
+      borderColor: theme.primary,
+    },
+    filterText: {
+      fontSize: 14,
+      color: theme.onSurfaceVariant,
+      fontWeight: "500",
+    },
+    filterTextActive: {
+      color: theme.onSecondaryContainer,
     },
     dateSelector: {
       marginLeft: -4,
@@ -575,6 +827,22 @@ const getStyles = (theme: any) =>
     createBtnText: {
       color: theme.onPrimary,
       fontWeight: "500",
+    },
+    fab: {
+      position: "absolute",
+      bottom: 120, // Sit above the Bottom Navigation Bar
+      right: 24,
+      width: 64,
+      height: 64,
+      borderRadius: 24, // MD3 Large FAB
+      backgroundColor: theme.primaryContainer,
+      justifyContent: "center",
+      alignItems: "center",
+      elevation: 6,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
     },
   });
 
