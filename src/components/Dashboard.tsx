@@ -7,7 +7,9 @@ import {
   StyleSheet,
   FlatList,
   Dimensions,
+  Animated, // Add Animated
 } from "react-native";
+import { useRef } from "react"; // Add useRef
 import { Agenda, DailyTask, TaskStatus, AgendaType } from "../types";
 import {
   Check,
@@ -16,6 +18,7 @@ import {
   Shield,
   ArrowRight,
   Settings,
+  Flame,
   Plus,
   ChevronDown,
   Calendar as CalendarIcon,
@@ -35,6 +38,7 @@ import ProfileModal from "./ProfileModal";
 import QuickAddModal from "./QuickAddModal";
 import { getLocalDateString } from "../utils/logic";
 import { useTheme } from "../context/ThemeContext";
+import { calculateStreak } from "../utils/insightsLogic";
 
 interface DashboardProps {
   agendas: Agenda[];
@@ -73,10 +77,10 @@ const NumericProgressBar: React.FC<{
     </View>
   );
 };
-
 interface TaskCardProps {
   task: DailyTask;
   agenda: Agenda;
+  streak?: number; // Add prop
   onClick: (task: DailyTask) => void;
   onSettingsClick: () => void;
   onToggleStatus: (task: DailyTask) => void;
@@ -85,6 +89,7 @@ interface TaskCardProps {
 const TaskCard: React.FC<TaskCardProps> = ({
   task,
   agenda,
+  streak,
   onClick,
   onSettingsClick,
   onToggleStatus,
@@ -145,9 +150,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardLeft}>
-          {/* Icon Box or Checkbox */}
+          {/* ... existing IconBox/Checkbox ... */}
+           {/* Replace original IconBox block to inject Streak Badge logic if needed, 
+              but "CardLeft" contains the IconBox. 
+              Let's inject the Streak Badge next to the Title or Subtitle.
+           */}
+           {/* Actually, let's put it on the right side next to Settings or Priority? 
+               Or next to the title. 
+           */}
+           
           {isOneOff ? (
-            <TouchableOpacity
+             // ... existing one-off ...
+             <TouchableOpacity
               onPress={(e) => {
                 e.stopPropagation(); // Prevent opening modal
                 onToggleStatus(task);
@@ -161,7 +175,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               )}
             </TouchableOpacity>
           ) : (
-            <View
+             <View
               style={[
                 styles.iconBox,
                 {
@@ -179,24 +193,34 @@ const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           <View style={{ flex: 1 }}>
-            <Text
-              style={[
-                styles.cardTitle,
-                task.status === TaskStatus.COMPLETED && styles.textLineThrough,
-              ]}
-            >
-              {agenda.title}
-              {task.mood && <Text style={{ opacity: 0.8 }}> {task.mood}</Text>}
-            </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                 <Text
+                  style={[
+                    styles.cardTitle,
+                    task.status === TaskStatus.COMPLETED && styles.textLineThrough,
+                    {marginRight: 0} // Reset margin
+                  ]}
+                  numberOfLines={1}
+                >
+                  {agenda.title}
+                </Text>
+                {streak && streak > 2 && (
+                    <View style={{flexDirection:'row', alignItems:'center', backgroundColor: '#FFC10720', paddingHorizontal:6, paddingVertical:2, borderRadius:100}}>
+                         <Flame size={10} color="#FFC107" fill="#FFC107" />
+                         <Text style={{fontSize: 10, color: '#FF9800', fontWeight: 'bold', marginLeft: 2}}>{streak}</Text>
+                    </View>
+                )}
+            </View>
             <Text style={styles.cardSubtitle}>
               {isNumeric
                 ? `${task.targetVal} ${agenda.unit || "units"}`
-                : "Daily"}
+                : "Daily"} 
+               {task.mood && <Text style={{ opacity: 0.8 }}> • {task.mood}</Text>}
             </Text>
 
             {/* Subtask Progress Mini Bar */}
             {isOneOff && task.subtasks && task.subtasks.length > 0 && (
-              <View
+               <View
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
@@ -240,6 +264,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </View>
 
         <View style={styles.cardRight}>
+        {/* ... */}
           {/* Priority Indicator */}
           {agenda.priority === "HIGH" && (
             <View
@@ -330,6 +355,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"LIST" | "BOARD">("LIST");
+  const [boardPage, setBoardPage] = useState(0);
+
+
 
   /* ------------------ Filtering Logic ------------------ */
   const [searchText, setSearchText] = useState("");
@@ -417,6 +445,24 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     setLocalTasks(sorted);
   }, [tasks, selectedDate, agendas, searchText, activeFilter]);
+
+  /* ------------------ Animations ------------------ */
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+     if (viewMode === "LIST" && localTasks.length === 0 && agendas.length > 0) {
+         // Pulse
+         Animated.loop(
+             Animated.sequence([
+                 Animated.timing(scaleAnim, { toValue: 1.1, duration: 800, useNativeDriver: true }),
+                 Animated.timing(scaleAnim, { toValue: 1, duration: 800, useNativeDriver: true })
+             ])
+         ).start();
+     } else {
+         scaleAnim.stopAnimation();
+         scaleAnim.setValue(1);
+     }
+  }, [viewMode, localTasks.length, agendas.length]);
 
   const handleTaskClick = (task: DailyTask) => {
     const agenda = agendas.find((a) => a.id === task.agendaId);
@@ -531,7 +577,25 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* List / Board Switch */}
       <View style={styles.listContainer}>
-        {viewMode === "LIST" && <Text style={styles.sectionTitle}>Priorities</Text>}
+        <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom: 8}}>
+            <Text style={styles.sectionTitle}>
+                {viewMode === "LIST" ? "Priorities" : "Kanban Board"}
+            </Text>
+            
+            {viewMode === "BOARD" && (
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  {[0, 1, 2].map(i => (
+                    <View key={i} style={{
+                      width: i === boardPage ? 16 : 8, 
+                      height: 8, 
+                      borderRadius: 4, 
+                      marginHorizontal: 3,
+                      backgroundColor: i === boardPage ? theme.primary : theme.surfaceVariant
+                    }} />
+                  ))}
+                </View>
+            )}
+        </View>
 
         {viewMode === "LIST" ? (
         agendas.length === 0 ? (
@@ -587,6 +651,11 @@ const Dashboard: React.FC<DashboardProps> = ({
           contentContainerStyle={styles.boardContainer}
           decelerationRate="fast"
           snapToInterval={Dimensions.get("window").width * 0.85 + 16}
+          onMomentumScrollEnd={(e) => {
+              const offsetX = e.nativeEvent.contentOffset.x;
+              const width = Dimensions.get("window").width * 0.85 + 16;
+              setBoardPage(Math.round(offsetX / width));
+          }}
         >
           {/* TO DO Column */}
           <View style={styles.column}>
@@ -722,12 +791,22 @@ const Dashboard: React.FC<DashboardProps> = ({
         onCreateTask={onCreateTask}
       />
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setIsQuickAddOpen(true)}
+      <Animated.View 
+        style={[
+            styles.fab, 
+            { 
+                elevation: 6, // explicitly set for Android
+                transform: [{ scale: scaleAnim }] 
+            }
+        ]}
       >
-        <Plus size={32} color={theme.onPrimaryContainer} />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
+          onPress={() => setIsQuickAddOpen(true)}
+        >
+          <Plus size={32} color={theme.onPrimaryContainer} />
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 };

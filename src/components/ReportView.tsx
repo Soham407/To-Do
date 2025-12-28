@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
+  Modal,
+  Platform,
+  Share, // Add Share
 } from "react-native";
 import {
   Agenda,
@@ -14,7 +16,7 @@ import {
   FailureTag,
   AgendaType,
 } from "../types";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme, ThemeType } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import {
@@ -23,9 +25,23 @@ import {
   TrendingUp,
   Calendar as CalendarIcon,
   Check,
+  ChevronDown,
+  ArrowUp,
+  ArrowDown,
+  X,
+  Target,
+  Clock,
+  Zap,
+  Share2, // Add Icon
 } from "lucide-react-native";
-import { Calendar, DateData } from "react-native-calendars";
+import { Calendar } from "react-native-calendars";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { getLocalDateString } from "../utils/logic";
+import {
+  calculateStreak,
+  getConsistencyDelta,
+  getCorrelations,
+} from "../utils/insightsLogic";
 
 interface ReportViewProps {
   tasks: DailyTask[];
@@ -35,112 +51,190 @@ interface ReportViewProps {
 const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const styles = React.useMemo(() => getStyles(theme), [theme]);
-  const [filter, setFilter] = useState<"week" | "month">("week");
+  const styles = useMemo(() => getStyles(theme), [theme]);
+  
+  // -- State --
+  const [filterMode, setFilterMode] = useState<"week" | "month" | "custom">("week");
+  const [customStart, setCustomStart] = useState<Date>(new Date(Date.now() - 7 * 86400000));
+  const [customEnd, setCustomEnd] = useState<Date>(new Date());
+  
+  // Date Picker State
+  const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(null);
+
+  // Detail Modal State
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  // Neural Insights (Supabase)
   const [insightText, setInsightText] = useState<string | null>(null);
 
-  const daysToShow = filter === "week" ? 7 : 30;
+  // -- Derived Date Range --
+  const { startDateStr, endDateStr, daysInRange } = useMemo(() => {
+    let start = new Date();
+    let end = new Date();
+    let days = 7;
 
-  const startDateStr = React.useMemo(() => {
-    const days = daysToShow;
-    const today = new Date();
-    const start = new Date();
-    start.setDate(today.getDate() - days + 1);
-    return getLocalDateString(start);
-  }, [filter]);
+    if (filterMode === "week") {
+      start.setDate(end.getDate() - 6);
+      days = 7;
+    } else if (filterMode === "month") {
+      start.setDate(end.getDate() - 29);
+      days = 30;
+    } else {
+      start = customStart;
+      end = customEnd;
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
+    
+    return {
+      startDateStr: getLocalDateString(start),
+      endDateStr: getLocalDateString(end),
+      daysInRange: days,
+    };
+  }, [filterMode, customStart, customEnd]);
 
-  // Stats Logic (Memoized)
-  const rangeTasks = React.useMemo(
+  // -- Stats Calculations --
+  
+  const rangeTasks = useMemo(
     () =>
       tasks.filter(
         (t) =>
           t.scheduledDate >= startDateStr &&
+          t.scheduledDate <= endDateStr &&
           agendas.some((a) => a.id === t.agendaId)
       ),
-    [tasks, startDateStr, agendas]
+    [tasks, startDateStr, endDateStr, agendas]
   );
+  
+  // 1. Overall Consistency
+  const consistencyStats = useMemo(() => {
+    const completedOrFailed = rangeTasks.filter((t) => t.status !== TaskStatus.PENDING);
+    if (completedOrFailed.length === 0) return { score: 0, delta: 0 };
 
-  const completedOrFailed = React.useMemo(
-    () => rangeTasks.filter((t) => t.status !== TaskStatus.PENDING),
-    [rangeTasks]
-  );
+    const success = completedOrFailed.filter(
+      (t) => t.status === TaskStatus.COMPLETED || t.status === TaskStatus.SKIPPED_WITH_BUFFER
+    ).length;
+    
+    const score = Math.round((success / completedOrFailed.length) * 100);
+    const delta = getConsistencyDelta(tasks, agendas, daysInRange);
+    
+    return { score, delta };
+  }, [rangeTasks, tasks, agendas, daysInRange]);
 
-  const successful = React.useMemo(
-    () =>
-      completedOrFailed.filter(
-        (t) =>
-          t.status === TaskStatus.COMPLETED ||
-          t.status === TaskStatus.SKIPPED_WITH_BUFFER
-      ),
-    [completedOrFailed]
-  );
-
-  const consistencyScore = React.useMemo(
-    () =>
-      completedOrFailed.length > 0
-        ? Math.round((successful.length / completedOrFailed.length) * 100)
-        : 0,
-    [completedOrFailed.length, successful.length]
-  );
-
-  // Failure Tag Logic (Memoized)
-  const topTags = React.useMemo(() => {
-    const tagCounts: Record<string, number> = {};
-    completedOrFailed.forEach((t) => {
-      if (t.failureTag && t.failureTag !== FailureTag.NONE) {
-        tagCounts[t.failureTag] = (tagCounts[t.failureTag] || 0) + 1;
-      }
+  // 2. Streaks & Total Wins
+  const streakStats = useMemo(() => {
+    let bestStreak = 0;
+    let totalWins = 0;
+    
+    agendas.forEach(a => {
+        const { current, longest } = calculateStreak(tasks, a.id);
+        if (current > bestStreak) bestStreak = current;
     });
+    
+    // Total historical wins (not just range)
+    totalWins = tasks.filter(t => t.status === TaskStatus.COMPLETED).length;
+    
+    return { bestStreak, totalWins };
+  }, [tasks, agendas]);
 
-    return Object.entries(tagCounts)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 3);
-  }, [completedOrFailed]);
+  // 3. Habit Performance List
+  const habitPerformance = useMemo(() => {
+    return agendas.map(agenda => {
+        const agendaTasks = rangeTasks.filter(t => t.agendaId === agenda.id && t.status !== TaskStatus.PENDING);
+        const success = agendaTasks.filter(t => t.status === TaskStatus.COMPLETED || t.status === TaskStatus.SKIPPED_WITH_BUFFER).length;
+        const total = agendaTasks.length;
+        const score = total > 0 ? Math.round((success / total) * 100) : 0;
+        
+        // For numeric goals, calculate average % of target achieved
+        let numericProgress = 0;
+        if (agenda.type === AgendaType.NUMERIC) {
+             const numericTasks = rangeTasks.filter(t => t.agendaId === agenda.id && t.status !== TaskStatus.PENDING);
+             if (numericTasks.length > 0) {
+                 const totalActual = numericTasks.reduce((sum, t) => sum + t.actualVal, 0);
+                 const totalTarget = numericTasks.reduce((sum, t) => sum + t.targetVal, 0);
+                 numericProgress = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
+             }
+        }
+        
+        return {
+            ...agenda,
+            score,
+            numericProgress,
+            count: total
+        };
+    }).sort((a, b) => b.score - a.score);
+  }, [rangeTasks, agendas]);
 
-  // Fetch Neural Insights (RPC)
+  // 4. Correlations
+  const correlations = useMemo(() => getCorrelations(tasks, agendas), [tasks, agendas]);
+
+  // -- Effects --
   useEffect(() => {
     const fetchInsights = async () => {
       if (!user) return;
       try {
         const { data, error } = await supabase.rpc(
           "get_insights_failure_by_day",
-          {
-            p_user_id: user.id,
-          }
+          { p_user_id: user.id }
         );
         if (error) throw error;
-
         if (data && data.length > 0) {
-          const top = data[0]; // Highest count
+          const top = data[0]; 
           setInsightText(
-            `Insight: You tend to report '${top.failure_tag}' most often on ${top.day_label}s.`
+            `You tend to report '${top.failure_tag}' most often on ${top.day_label}s.`
           );
         }
       } catch (e) {
         console.error("Failed to fetch insights", e);
       }
     };
+    if (rangeTasks.length > 0) fetchInsights();
+  }, [user, rangeTasks.length]); // Simple dependency
 
-    // Only fetch if we have failed tasks to analyze, avoiding empty calls
-    if (completedOrFailed.length > 0) {
-      fetchInsights();
-    }
-  }, [user, tasks]); // Re-run when tasks change (e.g. new check-in)
-
-  // ... existing existing logic for Stats/Tags
-
-  const getCalendarDays = (daysToGenerate: number) => {
-    const days = [];
-    const end = new Date();
-    for (let i = daysToGenerate - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(end.getDate() - i);
-      days.push(getLocalDateString(d));
-    }
-    return days;
+  // -- Handlers --
+  const onDayPress = (day: any) => {
+    setSelectedDate(day.dateString);
+    setModalVisible(true);
   };
 
-  const calendarDays = getCalendarDays(daysToShow);
+  const getDayDetails = () => {
+    if (!selectedDate) return [];
+    return tasks.filter(t => t.scheduledDate === selectedDate && agendas.some(a => a.id === t.agendaId));
+  };
+  
+  const handleDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') setShowDatePicker(null);
+    if (date && showDatePicker) {
+        if (showDatePicker === 'start') setCustomStart(date);
+        else setCustomEnd(date);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      const summary = `
+📊 Insights Report (${startDateStr} - ${endDateStr})
+
+Consistency: ${consistencyStats.score}%
+${consistencyStats.delta !== 0 ? `Trajectory: ${consistencyStats.delta > 0 ? 'Up' : 'Down'} ${Math.abs(consistencyStats.delta)}%` : ''}
+
+🔥 Best Streak: ${streakStats.bestStreak} days
+🏆 Total Wins: ${streakStats.totalWins}
+
+Habits:
+${habitPerformance.map(h => `- ${h.title}: ${h.type === 'NUMERIC' ? h.numericProgress : h.score}%`).join('\n')}
+
+Generated by GoalCoach.
+      `.trim();
+
+      await Share.share({
+        message: summary,
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   return (
     <ScrollView
@@ -151,500 +245,474 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Insights</Text>
-          <Text style={styles.subtitle}>Your progress.</Text>
+          <Text style={styles.subtitle}>Your progress & patterns.</Text>
         </View>
-        <View style={styles.headerIcon}>
-          <TrendingUp size={24} color={theme.onTertiaryContainer} />
-        </View>
-      </View>
-
-      {/* Filter Toggles */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[
-            styles.filterBtn,
-            filter === "week" && styles.filterBtnActive,
-          ]}
-          onPress={() => setFilter("week")}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              filter === "week" && styles.filterTextActive,
-            ]}
-          >
-            Last 7 Days
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterBtn,
-            filter === "month" && styles.filterBtnActive,
-          ]}
-          onPress={() => setFilter("month")}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              filter === "month" && styles.filterTextActive,
-            ]}
-          >
-            Last 30 Days
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Score Card */}
-      <View style={styles.scoreCard}>
-        <View style={styles.scoreHeader}>
-          <View>
-            <Text style={styles.scoreLabel}>Consistency Score</Text>
-            <Text style={styles.scoreValue}>{consistencyScore}%</Text>
-          </View>
-          <Trophy size={32} color={theme.onPrimaryContainer + "80"} />
-        </View>
-
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressBarBg}>
-            <View
-              style={[
-                styles.progressBarFill,
-                { width: `${consistencyScore}%` },
-              ]}
-            />
-          </View>
-          <Text style={styles.scoreMessage}>
-            {consistencyScore > 80 ? "Excellent" : "Keep it up"}
-          </Text>
+        <View style={{flexDirection:'row', gap: 12}}>
+            <TouchableOpacity onPress={handleShare}>
+                <Share2 size={24} color={theme.primary} />
+            </TouchableOpacity>
         </View>
       </View>
 
-      {/* History Section */}
-      <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <CalendarIcon size={16} color={theme.primary} />
-          <Text style={styles.sectionTitle}>History</Text>
-        </View>
-
-        {agendas.length === 0 ? (
-          <Text style={styles.emptyText}>No active goals yet.</Text>
-        ) : (
-          agendas
-            .filter((a) => a.type !== AgendaType.ONE_OFF)
-            .map((agenda) => (
-              <View key={agenda.id} style={styles.agendaCard}>
-                <View style={styles.agendaHeader}>
-                  <Text style={styles.agendaTitle}>{agenda.title}</Text>
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {agenda.type === AgendaType.NUMERIC
-                        ? "NUM"
-                        : agenda.type === AgendaType.ONE_OFF
-                        ? "TASK"
-                        : "HABIT"}
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.dotsGrid,
-                    filter === "week" ? styles.dotsFlex : styles.dotsWrap,
-                  ]}
+      {/* Date Filter */}
+      <View style={styles.filterSection}>
+          <View style={styles.filterTabs}>
+            {(["week", "month", "custom"] as const).map(m => (
+                <TouchableOpacity 
+                    key={m} 
+                    style={[styles.filterTab, filterMode === m && styles.filterTabActive]}
+                    onPress={() => setFilterMode(m)}
                 >
-                  {filter === "month" ? (
-                    <Calendar
-                      current={getLocalDateString(new Date())}
-                      key={agenda.id + theme.background} // Force re-render on theme change
-                      markingType={"custom"}
-                      markedDates={(() => {
-                        const marks: any = {};
-                        tasks
-                          .filter((t) => t.agendaId === agenda.id)
-                          .forEach((t) => {
-                            let color = theme.surfaceVariant;
-                            let textColor = theme.onSurfaceVariant;
-                            if (t.status === TaskStatus.COMPLETED) {
-                              color = theme.primary;
-                              textColor = theme.onPrimary;
-                            } else if (t.status === TaskStatus.FAILED) {
-                              color = theme.error;
-                              textColor = theme.onError;
-                            } else if (
-                              t.status === TaskStatus.SKIPPED_WITH_BUFFER
-                            ) {
-                              color = "#FFC107";
-                              textColor = "#000";
-                            } else if (t.status === TaskStatus.PARTIAL) {
-                              color = theme.secondary;
-                              textColor = theme.onSecondary;
-                            }
+                    <Text style={[styles.filterTabText, filterMode === m && styles.filterTabTextActive]}>
+                        {m === 'week' ? '7 Days' : m === 'month' ? '30 Days' : 'Custom'}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+          </View>
+          
+          {filterMode === 'custom' && (
+              <View style={styles.dateRangeRow}>
+                  <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker('start')}>
+                      <Text style={styles.dateBtnText}>{getLocalDateString(customStart)}</Text>
+                  </TouchableOpacity>
+                  <Text style={{color: theme.onSurfaceVariant}}>-</Text>
+                  <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker('end')}>
+                       <Text style={styles.dateBtnText}>{getLocalDateString(customEnd)}</Text>
+                  </TouchableOpacity>
+              </View>
+          )}
+      </View>
 
-                            if (t.status !== TaskStatus.PENDING) {
-                              marks[t.scheduledDate] = {
-                                customStyles: {
-                                  container: {
-                                    backgroundColor: color,
-                                    borderRadius: 8,
-                                  },
-                                  text: {
-                                    color: textColor,
-                                    fontWeight: "bold",
-                                  },
-                                },
-                              };
-                            }
-                          });
-                        return marks;
-                      })()}
-                      theme={{
-                        backgroundColor: "transparent",
-                        calendarBackground: "transparent",
-                        textSectionTitleColor: theme.onSurfaceVariant,
-                        dayTextColor: theme.onSurface,
-                        todayTextColor: theme.primary,
-                        arrowColor: theme.primary,
-                        monthTextColor: theme.onSurface,
-                        textDayHeaderFontWeight: "600",
-                      }}
-                      hideExtraDays={true}
-                      disableMonthChange={true}
-                      hideArrows={true} // Simple specific month view? Or allow navigation?
-                      // Mentor asked for "streak view" which usually implies static history
-                      // But standard calendar is fine. I'll hide arrows to keep it compact as "Last 30 days" implies static window?
-                      // "Last 30 Days" filter usually implies a rolling window, but Calendar is month-based (e.g. December).
-                      // Showing the current month is a good approximation for "Monthly Report".
-                    />
-                  ) : (
-                    calendarDays.map((dateStr) => {
-                      const task = tasks.find(
-                        (t) =>
-                          t.agendaId === agenda.id &&
-                          t.scheduledDate === dateStr
-                      );
-                      const status = task ? task.status : null;
-
-                      let bgColor = theme.surfaceVariant + "80"; // Light gray
-                      let textColor = theme.onSurfaceVariant;
-                      let content = "";
-
-                      if (status) {
-                        switch (status) {
-                          case TaskStatus.COMPLETED:
-                            bgColor = theme.primary;
-                            textColor = theme.onPrimary;
-                            break;
-                          case TaskStatus.FAILED:
-                            bgColor = theme.error;
-                            textColor = theme.onError;
-                            content = "X";
-                            break;
-                          case TaskStatus.SKIPPED_WITH_BUFFER:
-                            bgColor = "#FFC107"; // Amber
-                            textColor = "#000";
-                            content = "B";
-                            break;
-                          case TaskStatus.PARTIAL:
-                            bgColor = theme.secondary;
-                            textColor = theme.onSecondary;
-                            content = "%";
-                            break;
-                          case TaskStatus.PENDING:
-                            bgColor = theme.surfaceVariant;
-                            break;
-                        }
-                      }
-
-                      return (
-                        <View
-                          key={dateStr}
-                          style={[
-                            styles.dot,
-                            styles.dotLarge, // Always large in Week view
-                            {
-                              backgroundColor: bgColor,
-                              borderColor: theme.outline,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 12, // Always 12 in Week view
-                              color: textColor,
-                              fontWeight: "bold",
-                            }}
-                          >
-                            {content}
+      {/* Stats Cards Row */}
+      <View style={styles.statsRow}>
+          {/* Consistency Card */}
+          <View style={[styles.statCard, { flex: 1.2 }]}>
+              <View style={styles.statHeader}>
+                  <Text style={styles.statLabel}>Consistency</Text>
+                  <TrendingUp size={16} color={theme.primary} />
+              </View>
+              <View style={styles.statMain}>
+                  <Text style={styles.statValue}>{consistencyStats.score}%</Text>
+                  
+                  {consistencyStats.delta !== 0 && (
+                      <View style={[styles.deltaBadge, { backgroundColor: consistencyStats.delta > 0 ? theme.primaryContainer : theme.errorContainer }]}>
+                          {consistencyStats.delta > 0 ? <ArrowUp size={12} color={theme.onPrimaryContainer} /> : <ArrowDown size={12} color={theme.onErrorContainer} />}
+                          <Text style={[styles.deltaText, { color: consistencyStats.delta > 0 ? theme.onPrimaryContainer : theme.onErrorContainer }]}>
+                            {Math.abs(consistencyStats.delta)}%
                           </Text>
-                        </View>
-                      );
-                    })
+                      </View>
                   )}
-                </View>
               </View>
-            ))
-        )}
-      </View>
+              <Text style={styles.statSub}>vs previous {daysInRange} days</Text>
+          </View>
 
-      {/* Blockers Section */}
+          {/* Streaks Card */}
+          <View style={[styles.statCard, { flex: 0.8 }]}>
+               <View style={styles.statHeader}>
+                  <Text style={styles.statLabel}>Best Streak</Text>
+                  <Zap size={16} color="#FFC107" />
+              </View>
+               <Text style={styles.statValue}>{streakStats.bestStreak} <Text style={{fontSize: 16, fontWeight:'400'}}>days</Text></Text>
+               <Text style={styles.statSub}>{streakStats.totalWins} total wins</Text>
+          </View>
+      </View>
+      
+      {/* Coach / Insights Section */}
+      {(insightText || correlations.length > 0) && (
+          <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Coach Insights</Text>
+              
+              {insightText && (
+                  <View style={styles.insightBox}>
+                      <AlertTriangle size={20} color={theme.tertiary} />
+                      <Text style={styles.insightText}>{insightText}</Text>
+                  </View>
+              )}
+              
+              {correlations.map((c, i) => (
+                   <View key={i} style={styles.insightBox}>
+                      <TrendingUp size={20} color={theme.secondary} />
+                      <Text style={styles.insightText}>{c}</Text>
+                  </View>
+              ))}
+          </View>
+      )}
+
+      {/* Habit Performance (Categories/Breakdown replacement) */}
       <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <AlertTriangle size={16} color={theme.primary} />
-          <Text style={styles.sectionTitle}>Blockers & Insights</Text>
-        </View>
-
-        {insightText && (
-          <View
-            style={[
-              styles.noBlockersBox,
-              { marginBottom: 12, backgroundColor: theme.primaryContainer },
-            ]}
-          >
-            <TrendingUp size={16} color={theme.onPrimaryContainer} />
-            <Text
-              style={{ color: theme.onPrimaryContainer, flex: 1, fontSize: 13 }}
-            >
-              {insightText}
-            </Text>
-          </View>
-        )}
-
-        {topTags.length === 0 ? (
-          <View style={styles.noBlockersBox}>
-            <Check size={16} color={theme.onSecondaryContainer} />
-            <Text style={styles.noBlockersText}>
-              No failures in this period.
-            </Text>
-          </View>
-        ) : (
-          topTags.map(([tag, count]) => (
-            <View key={tag} style={styles.blockerRow}>
-              <Text style={styles.blockerText}>{tag}</Text>
-              <View style={styles.blockerCount}>
-                <Text style={styles.blockerCountText}>{count}x</Text>
-              </View>
-            </View>
-          ))
-        )}
+          <Text style={styles.sectionTitle}>Performance by Habit</Text>
+          {habitPerformance.length === 0 ? (
+              <Text style={styles.emptyText}>No data for this period.</Text>
+          ) : (
+             habitPerformance.map(h => {
+                 const isNum = h.type === AgendaType.NUMERIC;
+                 // Use numeric progress for numeric goals, consistency score for habits
+                 const displayPercent = isNum ? h.numericProgress : h.score; 
+                 const barColor = displayPercent >= 80 ? theme.primary : displayPercent >= 50 ? theme.secondary : theme.error;
+                 
+                 return (
+                     <View key={h.id} style={styles.habitRow}>
+                         <View style={{flex: 1}}>
+                             <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom: 6}}>
+                                 <Text style={styles.habitTitle}>{h.title}</Text>
+                                 <Text style={styles.habitPercent}>{displayPercent}%</Text>
+                             </View>
+                             
+                             <View style={styles.progressBarBg}>
+                                 <View style={[styles.progressBarFill, { width: `${Math.min(displayPercent, 100)}%`, backgroundColor: barColor }]} />
+                             </View>
+                             
+                             {isNum && (
+                                 <Text style={styles.habitMeta}>Target completion rate</Text>
+                             )}
+                         </View>
+                     </View>
+                 )
+             })
+          )}
       </View>
+      
+       <View style={styles.sectionContainer}>
+           <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'baseline', marginBottom: 12}}>
+               <Text style={styles.sectionTitle}>History Log</Text>
+               <Text style={{fontSize: 12, color: theme.onSurfaceVariant, fontStyle:'italic'}}>Tap a day to details</Text>
+           </View>
+           <View style={styles.calendarContainer}>
+               <Calendar
+                  current={getLocalDateString(new Date())}
+                  onDayPress={onDayPress}
+                  markingType="multi-dot"
+                  markedDates={(() => {
+                      const marks: any = {};
+                      rangeTasks.forEach(t => {
+                          if (!marks[t.scheduledDate]) marks[t.scheduledDate] = {dots: []};
+                          
+                          let color = theme.surfaceVariant;
+                          if (t.status === TaskStatus.COMPLETED) color = theme.primary;
+                          else if (t.status === TaskStatus.FAILED) color = theme.error;
+                          else if (t.status === TaskStatus.SKIPPED_WITH_BUFFER) color = '#FFC107';
+                          
+                          if (t.status !== TaskStatus.PENDING) {
+                              marks[t.scheduledDate].dots.push({ key: t.id, color: color });
+                          }
+                      });
+                      
+                      // Also mark selected day
+                      if (selectedDate) {
+                          marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: theme.primaryContainer };
+                      }
+                      
+                      return marks;
+                  })()}
+                  theme={{
+                    backgroundColor: 'transparent',
+                    calendarBackground: 'transparent',
+                    textSectionTitleColor: theme.onSurfaceVariant,
+                    dayTextColor: theme.onSurface,
+                    todayTextColor: theme.primary,
+                    arrowColor: theme.primary,
+                    monthTextColor: theme.onSurface,
+                  }}
+               />
+           </View>
+      </View>
+
+      {/* Detail Modal */}
+      <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>
+                        {selectedDate ? new Date(selectedDate).toDateString() : ''}
+                    </Text>
+                    <TouchableOpacity onPress={() => setModalVisible(false)}>
+                        <X size={24} color={theme.onSurface} />
+                    </TouchableOpacity>
+                </View>
+                
+                <ScrollView contentContainerStyle={{paddingBottom: 20}}>
+                    {getDayDetails().length === 0 ? (
+                        <Text style={styles.emptyText}>No activity recorded.</Text>
+                    ) : (
+                        getDayDetails().map(t => (
+                            <View key={t.id} style={styles.detailRow}>
+                                <View style={[styles.statusDot, { 
+                                    backgroundColor: 
+                                        t.status === TaskStatus.COMPLETED ? theme.primary : 
+                                        t.status === TaskStatus.FAILED ? theme.error : theme.surfaceVariant 
+                                }]} />
+                                <View style={{flex: 1}}>
+                                    <Text style={styles.detailTitle}>
+                                        {agendas.find(a => a.id === t.agendaId)?.title || 'Unknown Task'}
+                                    </Text>
+                                    {t.note ? (
+                                        <Text style={styles.detailNote}>Note: {t.note}</Text>
+                                    ) : null}
+                                    {t.actualVal > 0 && agendas.find(a => a.id === t.agendaId)?.type === AgendaType.NUMERIC && (
+                                        <Text style={styles.detailMeta}>Recorded: {t.actualVal}</Text>
+                                    )}
+                                </View>
+                                {t.status === TaskStatus.COMPLETED && <Check size={16} color={theme.primary} />}
+                            </View>
+                        ))
+                    )}
+                </ScrollView>
+            </View>
+        </View>
+      </Modal>
+      
+      {/* DateTimePicker handling */}
+      {showDatePicker && (
+        <DateTimePicker
+            value={showDatePicker === 'start' ? customStart : customEnd}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+        />
+      )}
+      
     </ScrollView>
   );
 };
 
-const getStyles = (theme: any) =>
+const getStyles = (theme: ThemeType) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      padding: 16,
       backgroundColor: theme.background,
+      padding: 16,
     },
     header: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 24,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
     },
     title: {
-      fontSize: 32,
-      color: theme.onSurface,
+        fontSize: 32,
+        color: theme.onSurface,
+        fontWeight: 'bold',
     },
     subtitle: {
-      fontSize: 14,
-      color: theme.onSurfaceVariant,
+        fontSize: 14,
+        color: theme.onSurfaceVariant,
     },
-    headerIcon: {
-      width: 48,
-      height: 48,
-      backgroundColor: theme.tertiaryContainer,
-      borderRadius: 16,
-      justifyContent: "center",
-      alignItems: "center",
+    filterSection: {
+        marginBottom: 24,
     },
-    filterContainer: {
-      flexDirection: "row",
-      backgroundColor: theme.surfaceContainer,
-      borderRadius: 100,
-      padding: 4,
-      marginBottom: 24,
-      borderWidth: 1,
-      borderColor: theme.outline + "20",
+    filterTabs: {
+        flexDirection: 'row',
+        backgroundColor: theme.surfaceContainer,
+        borderRadius: 12,
+        padding: 4,
+        marginBottom: 12,
     },
-    filterBtn: {
-      flex: 1,
-      paddingVertical: 8,
-      alignItems: "center",
-      borderRadius: 100,
+    filterTab: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center',
+        borderRadius: 8,
     },
-    filterBtnActive: {
-      backgroundColor: theme.secondaryContainer,
-      shadowColor: "#000",
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-      elevation: 1,
+    filterTabActive: {
+        backgroundColor: theme.primaryContainer,
     },
-    filterText: {
-      fontSize: 14,
-      color: theme.onSurfaceVariant,
-      fontWeight: "500",
+    filterTabText: {
+        fontSize: 14,
+        color: theme.onSurfaceVariant,
+        fontWeight: '500',
     },
-    filterTextActive: {
-      color: theme.onSecondaryContainer,
+    filterTabTextActive: {
+        color: theme.onPrimaryContainer,
+        fontWeight: 'bold',
     },
-    scoreCard: {
-      backgroundColor: theme.primaryContainer,
-      borderRadius: 24,
-      padding: 24,
-      marginBottom: 24,
+    dateRangeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
     },
-    scoreHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      marginBottom: 16,
+    dateBtn: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        backgroundColor: theme.surfaceContainerHigh,
+        borderRadius: 8,
     },
-    scoreLabel: {
-      fontSize: 14,
-      color: theme.onPrimaryContainer,
-      opacity: 0.7,
-      fontWeight: "500",
+    dateBtnText: {
+        color: theme.onSurface,
+        fontSize: 14,
     },
-    scoreValue: {
-      fontSize: 48,
-      color: theme.onPrimaryContainer,
-      fontWeight: "400",
-      lineHeight: 56,
+    statsRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 24,
     },
-    progressBarContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
+    statCard: {
+        backgroundColor: theme.surfaceContainer,
+        borderRadius: 16,
+        padding: 16,
     },
-    progressBarBg: {
-      flex: 1,
-      height: 8,
-      backgroundColor: theme.onPrimaryContainer + "20",
-      borderRadius: 100,
-      maxWidth: 150,
+    statHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
     },
-    progressBarFill: {
-      height: "100%",
-      backgroundColor: theme.primary,
-      borderRadius: 100,
+    statLabel: {
+        fontSize: 12,
+        color: theme.onSurfaceVariant,
+        fontWeight: '600',
     },
-    scoreMessage: {
-      fontSize: 12,
-      fontWeight: "500",
-      color: theme.onPrimaryContainer,
+    statMain: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: 8,
+        marginBottom: 4,
+    },
+    statValue: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: theme.onSurface,
+    },
+    statSub: {
+        fontSize: 11,
+        color: theme.onSurfaceVariant,
+    },
+    deltaBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 100,
+        gap: 2,
+    },
+    deltaText: {
+        fontSize: 11,
+        fontWeight: 'bold',
     },
     sectionContainer: {
-      marginBottom: 24,
-    },
-    sectionHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      marginBottom: 12,
-      marginLeft: 4,
+        marginBottom: 24,
     },
     sectionTitle: {
-      fontSize: 14,
-      fontWeight: "500",
-      color: theme.primary,
+        fontSize: 18,
+        color: theme.onSurface,
+        fontWeight: 'bold',
+        marginBottom: 16,
+    },
+    habitRow: {
+        marginBottom: 16,
+        backgroundColor: theme.surfaceContainerLow,
+        padding: 12,
+        borderRadius: 12,
+    },
+    habitTitle: {
+        fontSize: 14,
+        color: theme.onSurface,
+        fontWeight: '600',
+    },
+    habitPercent: {
+        fontSize: 14,
+        color: theme.onSurface,
+        fontWeight: 'bold',
+    },
+    habitMeta: {
+        fontSize: 10,
+        color: theme.onSurfaceVariant,
+        marginTop: 4,
+    },
+    progressBarBg: {
+        height: 6,
+        backgroundColor: theme.outline + '20',
+        borderRadius: 100,
+        width: '100%',
+    },
+    progressBarFill: {
+        height: '100%',
+        borderRadius: 100,
+    },
+    calendarContainer: {
+        backgroundColor: theme.surfaceContainerLow,
+        borderRadius: 16,
+        padding: 8,
     },
     emptyText: {
-      fontStyle: "italic",
-      color: theme.onSurfaceVariant,
-      marginLeft: 8,
+        fontStyle: 'italic',
+        color: theme.onSurfaceVariant,
     },
-    agendaCard: {
-      backgroundColor: theme.surfaceContainerHigh,
-      borderRadius: 24,
-      padding: 16,
-      marginBottom: 12,
+    insightBox: {
+        flexDirection: 'row',
+        gap: 12,
+        backgroundColor: theme.tertiaryContainer + '40', // transparent tertiary
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 8,
+        alignItems: 'center',
     },
-    agendaHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 12,
+    insightText: {
+        flex: 1,
+        fontSize: 13,
+        color: theme.onSurface,
+        lineHeight: 20,
     },
-    agendaTitle: {
-      fontSize: 16,
-      fontWeight: "500",
-      color: theme.onSurface,
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
     },
-    badge: {
-      backgroundColor: theme.surfaceVariant,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 6,
+    modalContent: {
+        backgroundColor: theme.surface,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 24,
+        height: '60%',
     },
-    badgeText: {
-      fontSize: 10,
-      fontWeight: "bold",
-      color: theme.onSurfaceVariant,
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
     },
-    dotsGrid: {
-      flexDirection: "row",
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: theme.onSurface,
     },
-    dotsFlex: {
-      justifyContent: "space-between",
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 12,
+        marginBottom: 16,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.outline + '20',
     },
-    dotsWrap: {
-      flexWrap: "wrap",
-      gap: 6,
+    statusDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        marginTop: 4,
     },
-    dot: {
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 100,
-      borderWidth: 1,
-      borderColor: "transparent",
+    detailTitle: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: theme.onSurface,
     },
-    dotLarge: {
-      width: 36,
-      height: 36,
+    detailNote: {
+        fontSize: 14,
+        color: theme.onSurfaceVariant,
+        fontStyle: 'italic',
+        marginTop: 4,
     },
-    dotSmall: {
-      width: "13%", // Approx for 7 col grid with gap
-      aspectRatio: 1,
-    },
-    noBlockersBox: {
-      backgroundColor: theme.secondaryContainer + "80", // transparent
-      padding: 16,
-      borderRadius: 16,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    noBlockersText: {
-      fontSize: 14,
-      color: theme.onSecondaryContainer,
-    },
-    blockerRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      backgroundColor: theme.surfaceContainer,
-      padding: 12,
-      borderRadius: 16,
-      marginBottom: 8,
-    },
-    blockerText: {
-      fontSize: 14,
-      color: theme.onSurface,
-      fontWeight: "500",
-    },
-    blockerCount: {
-      backgroundColor: theme.errorContainer,
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      borderRadius: 100,
-    },
-    blockerCountText: {
-      fontSize: 12,
-      fontWeight: "bold",
-      color: theme.onErrorContainer,
+    detailMeta: {
+        fontSize: 12,
+        color: theme.primary,
+        marginTop: 4,
+        fontWeight: '500',
     },
   });
 

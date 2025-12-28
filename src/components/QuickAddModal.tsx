@@ -107,6 +107,23 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
     }
   };
 
+  const placeholders = [
+    "What needs to be done?",
+    "e.g. Read 10 pages",
+    "e.g. Call Mom",
+    "e.g. Project Review",
+    "e.g. Drink Water"
+  ];
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  useEffect(() => {
+    if(!isOpen) return;
+    const interval = setInterval(() => {
+        setPlaceholderIndex(prev => (prev + 1) % placeholders.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
   return (
     <Modal
       visible={isOpen}
@@ -134,7 +151,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
             <TextInput
               ref={inputRef}
               style={styles.input}
-              placeholder="What needs to be done?"
+              placeholder={title ? "" : placeholders[placeholderIndex]}
               placeholderTextColor={theme.onSurfaceVariant}
               value={title}
               onChangeText={setTitle}

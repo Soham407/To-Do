@@ -44,6 +44,23 @@ const GoalSettingsModal: React.FC<Props> = ({
   const [showPicker, setShowPicker] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
+  const placeholders = [
+    "e.g. Daily Meditation",
+    "e.g. Read 15 mins",
+    "e.g. 50 Pushups",
+    "e.g. Learn Spanish",
+    "e.g. Drink 3L Water"
+  ];
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  React.useEffect(() => {
+    if(!isOpen) return;
+    const interval = setInterval(() => {
+        setPlaceholderIndex(prev => (prev + 1) % placeholders.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
   // Sync state when agenda opens
   React.useEffect(() => {
     if (agenda) {
@@ -145,6 +162,8 @@ const GoalSettingsModal: React.FC<Props> = ({
             <TextInput
               style={styles.input}
               value={title}
+              placeholder={title ? "" : placeholders[placeholderIndex]}
+              placeholderTextColor={theme.onSurfaceVariant + '80'}
               onChangeText={setTitle}
             />
           </View>
