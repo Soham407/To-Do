@@ -1,7 +1,6 @@
 import {
   DailyTask,
   TaskStatus,
-  FailureTag,
   Agenda,
   AgendaType,
 } from "../types";
@@ -53,7 +52,7 @@ export const isDateInRecurrence = (date: Date, agenda: Agenda): boolean => {
   return true;
 };
 
-const DEFAULT_DURATION_DAYS = 30;
+export const DEFAULT_DURATION_DAYS = 30;
 
 export const getDailyTarget = (agenda: Agenda): number => {
   if (agenda.type === AgendaType.NUMERIC) {
@@ -61,7 +60,7 @@ export const getDailyTarget = (agenda: Agenda): number => {
       return agenda.targetVal;
     }
     if (agenda.totalTarget) {
-      return Math.ceil(agenda.totalTarget / DEFAULT_DURATION_DAYS); 
+      return Math.ceil(agenda.totalTarget / DEFAULT_DURATION_DAYS);
     }
     return 10; // Default placeholder
   }

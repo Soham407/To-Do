@@ -13,6 +13,7 @@ import {
   ensureTasksForDate,
   getTodayDateString,
   generateId,
+  DEFAULT_DURATION_DAYS,
 } from "./src/utils/logic";
 import { StatusBar } from "expo-status-bar";
 import { migrateLocalDataToSupabase } from "./src/utils/migration";
@@ -209,7 +210,7 @@ function MainApp() {
     NotificationService.scheduleTaskReminder(newAgenda);
 
     if (updates.totalTarget && updates.totalTarget > 0) {
-      const dailyTarget = updates.targetVal || oldAgenda.targetVal || Math.ceil(updates.totalTarget / 30);
+      const dailyTarget = updates.targetVal || oldAgenda.targetVal || Math.ceil(updates.totalTarget / DEFAULT_DURATION_DAYS);
       setTasks((prev) =>
         prev.map((t) => {
           if (t.agendaId === id && t.status === "PENDING") {

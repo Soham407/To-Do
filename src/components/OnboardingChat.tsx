@@ -117,10 +117,12 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
 
       } else {
         // Just a conversation reply
-        setMessages((prev) => [
-          ...prev,
-          { id: generateId(), text: message, sender: "bot" },
-        ]);
+        if (message) {
+            setMessages((prev) => [
+              ...prev,
+              { id: generateId(), text: message, sender: "bot" },
+            ]);
+        }
       }
 
     } catch (error: any) {
