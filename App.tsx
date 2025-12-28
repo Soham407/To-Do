@@ -16,6 +16,7 @@ import {
 } from "./src/utils/logic";
 import { StatusBar } from "expo-status-bar";
 import { migrateLocalDataToSupabase } from "./src/utils/migration";
+import { NotificationService } from "./src/services/NotificationService"; // Import Service
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/components/LoginScreen";
@@ -235,6 +236,12 @@ function MainApp() {
       reminderTime: reminderTime,
     };
     handleAgendaCreated(newAgenda);
+
+    if (reminderTime && reminderTime.trim() !== "") {
+      NotificationService.scheduleTaskReminder(newAgenda).catch((err) => {
+        console.error("Failed to schedule notification for new task:", err);
+      });
+    }
   };
 
   if (loading || authLoading) return null; // Or splash screen

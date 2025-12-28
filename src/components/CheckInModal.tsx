@@ -66,7 +66,6 @@ const CheckInModal: React.FC<Props> = ({
       setVal(initialVal);
       setSelectedStrategy(null);
       setUseBuffer(false);
-      setUseBuffer(false);
       setSelectedTag(FailureTag.NONE);
       setSubtasks(task.subtasks || []);
     }
@@ -309,9 +308,21 @@ const CheckInModal: React.FC<Props> = ({
                   </Text>
                 </Text>
               </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <X size={24} color={theme.onSurfaceVariant} />
-              </TouchableOpacity>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 16 }}
+              >
+                {onDeleteAgenda && (
+                  <TouchableOpacity
+                    onPress={handleDeleteOneOff}
+                    style={{ padding: 4 }}
+                  >
+                    <Trash size={20} color={theme.error} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                  <X size={24} color={theme.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Input Section */}

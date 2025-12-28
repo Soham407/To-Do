@@ -355,8 +355,6 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
                         }
                       }
 
-                      const dayNum = new Date(dateStr).getDate();
-
                       return (
                         <View
                           key={dateStr}

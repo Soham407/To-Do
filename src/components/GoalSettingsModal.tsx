@@ -87,16 +87,20 @@ const GoalSettingsModal: React.FC<Props> = ({
     };
 
     // Set reminder time
+    // Set reminder time
     if (reminderOption !== "None") {
-      const d = new Date(); // Use today as base for time-of-day
-      d.setSeconds(0);
-      d.setMilliseconds(0);
+      let hour = 9;
+      if (reminderOption === "Afternoon") hour = 13;
+      else if (reminderOption === "Evening") hour = 18;
 
-      if (reminderOption === "Morning") d.setHours(9, 0);
-      else if (reminderOption === "Afternoon") d.setHours(13, 0);
-      else if (reminderOption === "Evening") d.setHours(18, 0);
-
-      updates.reminderTime = d.toISOString();
+      if (agenda.type === AgendaType.ONE_OFF) {
+        const d = new Date();
+        d.setHours(hour, 0, 0, 0);
+        updates.reminderTime = d.toISOString();
+      } else {
+        // Recurring: use time-of-day string
+        updates.reminderTime = `${hour.toString().padStart(2, "0")}:00`;
+      }
     } else {
       updates.reminderTime = undefined;
     }

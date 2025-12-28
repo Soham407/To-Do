@@ -34,14 +34,6 @@ export interface Subtask {
   isCompleted: boolean;
 }
 
-export interface List {
-  id: string;
-  userId: string;
-  title: string;
-  color?: string;
-  icon?: string;
-}
-
 export interface Agenda {
   id: string;
   title: string;

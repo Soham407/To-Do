@@ -69,7 +69,8 @@ export const NotificationService = {
           },
           trigger: {
             date: triggerDate, // Specific point in time
-          } as any,
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+          },
         });
       }
     }
@@ -97,8 +98,8 @@ export const NotificationService = {
         trigger: {
           hour,
           minute,
-          repeats: true,
-        } as any,
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        },
       });
     }
   },

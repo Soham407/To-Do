@@ -20,6 +20,11 @@ export const getLocalDateString = (date: Date = new Date()) => {
 
 export const getTodayDateString = () => getLocalDateString(new Date());
 
+export const parseLocalIsoDate = (isoDateStr: string): Date => {
+  const [y, m, d] = isoDateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
 export const isDateInRecurrence = (date: Date, agenda: Agenda): boolean => {
   // Always include start date? Or respect pattern? Usually start date implies participation.
   // But let's strictly follow pattern.
@@ -32,7 +37,7 @@ export const isDateInRecurrence = (date: Date, agenda: Agenda): boolean => {
   if (pattern === "DAILY") return true;
   if (pattern === "WEEKLY") {
     // Create only on same day of week as startDate
-    const startDay = new Date(agenda.startDate).getDay();
+    const startDay = parseLocalIsoDate(agenda.startDate).getDay();
     return day === startDay;
   }
   if (pattern === "WEEKDAYS") {
