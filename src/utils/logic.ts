@@ -85,6 +85,7 @@ export const createInitialTasks = (
       targetVal: dailyTarget,
       actualVal: 0,
       status: TaskStatus.PENDING,
+      subtasks: [],
     });
 
     return tasks;
@@ -130,7 +131,7 @@ export const ensureTasksForDate = (
       (t) => t.agendaId === agenda.id && t.scheduledDate === dateStr
     );
 
-    const targetDate = new Date(dateStr + "T00:00:00"); // Ensure local time parsing appropriately or use helpers
+    const targetDate = parseLocalIsoDate(dateStr);
 
     // We only create if it DOESN'T exist AND it matches recurrence
     if (!hasTask && isDateInRecurrence(targetDate, agenda)) {
