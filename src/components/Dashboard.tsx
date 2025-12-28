@@ -24,6 +24,8 @@ import {
   Square,
   CheckSquare,
   Search,
+  List,
+  KanbanSquare,
 } from "lucide-react-native";
 import { TextInput } from "react-native";
 import CheckInModal from "./CheckInModal";
@@ -327,6 +329,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   );
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"LIST" | "BOARD">("LIST");
 
   /* ------------------ Filtering Logic ------------------ */
   const [searchText, setSearchText] = useState("");
@@ -445,6 +448,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     <View style={styles.container}>
       {/* Header & Controls */}
       <View style={styles.headerWrapper}>
+         {/* Row wrapper for filters + toggle */ }
+
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => setIsCalendarOpen(true)}
@@ -477,7 +482,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           />
         </View>
 
-        {/* Filters */}
+        {/* Filters & Toggle Component */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -510,13 +516,25 @@ const Dashboard: React.FC<DashboardProps> = ({
             </TouchableOpacity>
           ))}
         </ScrollView>
+          <TouchableOpacity
+            style={styles.viewToggleBtn}
+            onPress={() => setViewMode(viewMode === "LIST" ? "BOARD" : "LIST")}
+          >
+            {viewMode === "LIST" ? (
+              <KanbanSquare size={20} color={theme.onSurfaceVariant} />
+            ) : (
+              <List size={20} color={theme.onSurfaceVariant} />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* List */}
+      {/* List / Board Switch */}
       <View style={styles.listContainer}>
-        <Text style={styles.sectionTitle}>Priorities</Text>
+        {viewMode === "LIST" && <Text style={styles.sectionTitle}>Priorities</Text>}
 
-        {agendas.length === 0 ? (
+        {viewMode === "LIST" ? (
+        agendas.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
               <Sparkles size={24} color={theme.onSurfaceVariant} />
@@ -561,7 +579,109 @@ const Dashboard: React.FC<DashboardProps> = ({
               );
             }}
           />
-        )}
+        )
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.boardContainer}
+          decelerationRate="fast"
+          snapToInterval={Dimensions.get("window").width * 0.85 + 16}
+        >
+          {/* TO DO Column */}
+          <View style={styles.column}>
+            <View style={[styles.columnHeader, { backgroundColor: theme.surfaceContainerHighest }]}>
+               <Text style={styles.columnTitle}>To Do</Text>
+               <View style={[styles.countBadge, { backgroundColor: theme.surface }]}>
+                 <Text style={styles.countText}>
+                   {localTasks.filter((t) => t.status === TaskStatus.PENDING).length}
+                 </Text>
+               </View>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+                {localTasks
+                  .filter((t) => t.status === TaskStatus.PENDING)
+                  .map((item) => {
+                    const agenda = agendas.find((a) => a.id === item.agendaId);
+                    if (!agenda) return null;
+                    return (
+                        <View key={item.id} style={{ marginBottom: 10 }}>
+                          <TaskCard
+                            task={item}
+                            agenda={agenda}
+                            onClick={handleTaskClick}
+                            onSettingsClick={() => setSettingsAgenda(agenda)}
+                            onToggleStatus={handleQuickToggle}
+                          />
+                        </View>
+                    );
+                  })}
+            </ScrollView>
+          </View>
+
+          {/* IN PROGRESS Column */}
+          <View style={styles.column}>
+             <View style={[styles.columnHeader, { backgroundColor: theme.secondaryContainer }]}>
+               <Text style={[styles.columnTitle, { color: theme.onSecondaryContainer }]}>In Progress</Text>
+               <View style={[styles.countBadge, { backgroundColor: theme.surface }]}>
+                 <Text style={styles.countText}>
+                   {localTasks.filter((t) => t.status === TaskStatus.PARTIAL || t.status === TaskStatus.SKIPPED_WITH_BUFFER).length}
+                 </Text>
+               </View>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+                {localTasks
+                  .filter((t) => t.status === TaskStatus.PARTIAL || t.status === TaskStatus.SKIPPED_WITH_BUFFER)
+                  .map((item) => {
+                    const agenda = agendas.find((a) => a.id === item.agendaId);
+                    if (!agenda) return null;
+                    return (
+                        <View key={item.id} style={{ marginBottom: 10 }}>
+                          <TaskCard
+                            task={item}
+                            agenda={agenda}
+                            onClick={handleTaskClick}
+                            onSettingsClick={() => setSettingsAgenda(agenda)}
+                            onToggleStatus={handleQuickToggle}
+                          />
+                        </View>
+                    );
+                  })}
+            </ScrollView>
+          </View>
+
+          {/* DONE Column */}
+          <View style={styles.column}>
+             <View style={[styles.columnHeader, { backgroundColor: theme.surfaceContainerHigh }]}>
+               <Text style={styles.columnTitle}>Done</Text>
+               <View style={[styles.countBadge, { backgroundColor: theme.surface }]}>
+                 <Text style={styles.countText}>
+                   {localTasks.filter((t) => t.status === TaskStatus.COMPLETED || t.status === TaskStatus.FAILED).length}
+                 </Text>
+               </View>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+                {localTasks
+                  .filter((t) => t.status === TaskStatus.COMPLETED || t.status === TaskStatus.FAILED)
+                  .map((item) => {
+                    const agenda = agendas.find((a) => a.id === item.agendaId);
+                    if (!agenda) return null;
+                    return (
+                        <View key={item.id} style={{ marginBottom: 10 }}>
+                          <TaskCard
+                            task={item}
+                            agenda={agenda}
+                            onClick={handleTaskClick}
+                            onSettingsClick={() => setSettingsAgenda(agenda)}
+                            onToggleStatus={handleQuickToggle}
+                          />
+                        </View>
+                    );
+                  })}
+            </ScrollView>
+          </View>
+        </ScrollView>
+      )}
       </View>
 
       <CheckInModal
@@ -797,6 +917,44 @@ const getStyles = (theme: any) =>
       padding: 40,
       backgroundColor: theme.surfaceContainerHigh,
       borderRadius: 24,
+    },
+    // Board Styles
+    boardContainer: {
+      paddingHorizontal: 16,
+      gap: 16,
+    },
+    column: {
+      width: Dimensions.get("window").width * 0.85,
+      height: "100%",
+    },
+    columnHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: 12,
+      borderRadius: 16,
+      marginBottom: 12,
+    },
+    columnTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: theme.onSurface,
+    },
+    countBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    countText: {
+      fontSize: 12,
+      fontWeight: "bold",
+    },
+    viewToggleBtn: {
+      padding: 10,
+      backgroundColor: theme.surfaceContainer,
+      borderRadius: 12,
+      justifyContent: "center",
+      alignItems: "center",
     },
     emptyIcon: {
       width: 64,

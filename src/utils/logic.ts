@@ -21,7 +21,9 @@ export const getLocalDateString = (date: Date = new Date()) => {
 export const getTodayDateString = () => getLocalDateString(new Date());
 
 export const parseLocalIsoDate = (isoDateStr: string): Date => {
-  const [y, m, d] = isoDateStr.split("-").map(Number);
+  // Ensure we only look at YYYY-MM-DD even if full ISO string is passed
+  const datePart = isoDateStr.substring(0, 10);
+  const [y, m, d] = datePart.split("-").map(Number);
   return new Date(y, m - 1, d);
 };
 

@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Agenda, AgendaType } from "../types";
 import { useTheme, ThemeType } from "../context/ThemeContext";
 import { X, Trash2, Save } from "lucide-react-native";
@@ -38,9 +40,8 @@ const GoalSettingsModal: React.FC<Props> = ({
     "DAILY" | "WEEKLY" | "WEEKDAYS" | "CUSTOM"
   >("DAILY");
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
-  const [reminderOption, setReminderOption] = useState<
-    "None" | "Morning" | "Afternoon" | "Evening"
-  >("None");
+  const [reminderTime, setReminderTime] = useState<Date | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   // Sync state when agenda opens
@@ -56,15 +57,19 @@ const GoalSettingsModal: React.FC<Props> = ({
       setRecurrenceDays(agenda.recurrenceDays || []);
 
       // Determine existing reminder
+      // Determine existing reminder
       if (agenda.reminderTime) {
-        const d = new Date(agenda.reminderTime);
-        const h = d.getHours();
-        if (h === 9) setReminderOption("Morning");
-        else if (h === 13) setReminderOption("Afternoon");
-        else if (h === 18) setReminderOption("Evening");
-        else setReminderOption("None"); // Or Custom if we supported it
+        if (agenda.reminderTime.includes("T")) {
+          setReminderTime(new Date(agenda.reminderTime));
+        } else {
+          // Legacy support or fallback
+          const [h, m] = agenda.reminderTime.split(":").map(Number);
+          const d = new Date();
+          d.setHours(h, m, 0, 0);
+          setReminderTime(d);
+        }
       } else {
-        setReminderOption("None");
+        setReminderTime(null);
       }
 
       setIsConfirmingDelete(false);
@@ -88,19 +93,9 @@ const GoalSettingsModal: React.FC<Props> = ({
 
     // Set reminder time
     // Set reminder time
-    if (reminderOption !== "None") {
-      let hour = 9;
-      if (reminderOption === "Afternoon") hour = 13;
-      else if (reminderOption === "Evening") hour = 18;
-
-      if (agenda.type === AgendaType.ONE_OFF) {
-        const d = new Date();
-        d.setHours(hour, 0, 0, 0);
-        updates.reminderTime = d.toISOString();
-      } else {
-        // Recurring: use time-of-day string
-        updates.reminderTime = `${hour.toString().padStart(2, "0")}:00`;
-      }
+    // Set reminder time
+    if (reminderTime) {
+      updates.reminderTime = reminderTime.toISOString();
     } else {
       updates.reminderTime = undefined;
     }
@@ -221,32 +216,44 @@ const GoalSettingsModal: React.FC<Props> = ({
             </View>
           )}
 
-          {/* Reminder Section (New) */}
+          {/* Reminder Section (Time Picker) */}
           <View style={styles.section}>
             <Text style={styles.label}>Reminder</Text>
-            <View style={styles.chipsContainer}>
-              {(["None", "Morning", "Afternoon", "Evening"] as const).map(
-                (r) => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[
-                      styles.chip,
-                      reminderOption === r && styles.chipSelected,
-                    ]}
-                    onPress={() => setReminderOption(r)}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        reminderOption === r && styles.chipTextSelected,
-                      ]}
-                    >
-                      {r}
-                    </Text>
-                  </TouchableOpacity>
-                )
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+            >
+              <TouchableOpacity
+                onPress={() => setShowPicker(true)}
+                style={styles.timePickerBtn}
+              >
+                <Text style={styles.timePickerText}>
+                  {reminderTime
+                    ? reminderTime.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Add Reminder"}
+                </Text>
+              </TouchableOpacity>
+
+              {reminderTime && (
+                <TouchableOpacity onPress={() => setReminderTime(null)}>
+                  <X size={24} color={theme.error} />
+                </TouchableOpacity>
               )}
             </View>
+
+            {showPicker && (
+              <DateTimePicker
+                value={reminderTime || new Date()}
+                mode="time"
+                display="default"
+                onChange={(event, date) => {
+                  if (Platform.OS === "android") setShowPicker(false);
+                  if (event.type === "set" && date) setReminderTime(date);
+                }}
+              />
+            )}
           </View>
 
           {isNumeric && (
@@ -463,6 +470,19 @@ const getStyles = (theme: ThemeType) =>
     confirmDeleteText: {
       color: theme.onError,
       fontWeight: "600",
+    },
+    timePickerBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: theme.surfaceContainerHighest,
+      borderRadius: 12,
+      alignItems: "center",
+      minWidth: 120,
+    },
+    timePickerText: {
+      fontSize: 16,
+      color: theme.primary,
+      fontWeight: "500",
     },
   });
 

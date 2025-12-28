@@ -187,10 +187,24 @@ function MainApp() {
     setTasks(newTasks);
   };
 
+  // Initialize Notifications
+  useEffect(() => {
+    NotificationService.registerForPushNotificationsAsync();
+  }, []);
+
   const handleUpdateAgenda = (id: string, updates: Partial<Agenda>) => {
+    const oldAgenda = agendas.find((a) => a.id === id);
+    if (!oldAgenda) return;
+
+    const newAgenda = { ...oldAgenda, ...updates };
+
     setAgendas((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, ...updates } : a))
+      prev.map((a) => (a.id === id ? newAgenda : a))
     );
+
+    // Schedule or Cancel Reminder based on changes
+    NotificationService.scheduleTaskReminder(newAgenda);
+
     if (updates.totalTarget && updates.totalTarget > 0) {
       const newDailyTarget = Math.ceil(updates.totalTarget / 30);
       setTasks((prev) =>

@@ -48,10 +48,10 @@ export const NotificationService = {
 
   // 2. Schedule Reminder
   scheduleTaskReminder: async (agenda: Agenda) => {
-    if (!agenda.reminderTime) return;
-
-    // Remove existing notification for this agenda to avoid duplicates
+    // Always cancel existing reminder first (in case we are updating or removing)
     await NotificationService.cancelReminder(agenda.id);
+
+    if (!agenda.reminderTime) return;
 
     const triggerDate = new Date(agenda.reminderTime);
     const now = new Date();

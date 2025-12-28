@@ -18,7 +18,8 @@ import {
   Subtask,
 } from "../types";
 import { useTheme } from "../context/ThemeContext";
-import { X, Check, Plus, Trash } from "lucide-react-native";
+import { X, Check, Plus, Trash, Edit3, Eye } from "lucide-react-native";
+import Markdown from "react-native-markdown-display";
 import { generateId } from "../utils/logic";
 
 interface Props {
@@ -51,6 +52,8 @@ const CheckInModal: React.FC<Props> = ({
   const [useBuffer, setUseBuffer] = useState(false);
   const [selectedTag, setSelectedTag] = useState<FailureTag>(FailureTag.NONE);
   const [newItemText, setNewItemText] = useState("");
+  const [note, setNote] = useState("");
+  const [isPreview, setIsPreview] = useState(false);
 
   // Local subtasks state
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
@@ -68,6 +71,8 @@ const CheckInModal: React.FC<Props> = ({
       setUseBuffer(false);
       setSelectedTag(FailureTag.NONE);
       setSubtasks(task.subtasks || []);
+      setNote(task.note || "");
+      setIsPreview(false);
     }
   }, [task]);
 
@@ -114,6 +119,7 @@ const CheckInModal: React.FC<Props> = ({
       status: status,
       failureTag: isShortfall ? selectedTag : FailureTag.NONE,
       subtasks: subtasks,
+      note: note.trim(),
     };
 
     onUpdateTask(
@@ -402,6 +408,33 @@ const CheckInModal: React.FC<Props> = ({
               </View>
             </View>
 
+            {/* Notes Section */}
+            <View style={styles.section}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Notes</Text>
+                <TouchableOpacity onPress={() => setIsPreview(!isPreview)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 4 }}>
+                   {isPreview ? <Edit3 size={14} color={theme.primary} /> : <Eye size={14} color={theme.primary} />}
+                   <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '500' }}>{isPreview ? "Edit" : "Preview"}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {isPreview ? (
+                <View style={styles.markdownWrapper}>
+                  <Markdown style={getMarkdownStyles(theme)}>{note || "_No notes_"}</Markdown>
+                </View>
+              ) : (
+                <TextInput
+                    style={styles.noteInput}
+                    multiline
+                    textAlignVertical="top"
+                    placeholder="Add notes (supports Markdown)..."
+                    placeholderTextColor={theme.onSurfaceVariant}
+                    value={note}
+                    onChangeText={setNote}
+                />
+              )}
+            </View>
+
             {isShortfall && val !== "" && (
               <>
                 <View style={styles.divider} />
@@ -654,6 +687,34 @@ const getStyles = (theme: any) =>
       padding: 8,
       marginLeft: 8,
     },
+    noteInput: {
+      backgroundColor: theme.surfaceContainerLow,
+      borderRadius: 12,
+      padding: 12,
+      minHeight: 100,
+      fontSize: 14,
+      color: theme.onSurface,
+    },
+    markdownWrapper: {
+      backgroundColor: theme.surfaceContainerLow,
+      borderRadius: 12,
+      padding: 12,
+      minHeight: 100,
+    },
   });
+
+const getMarkdownStyles = (theme: any) => ({
+  body: { color: theme.onSurface, fontSize: 14 },
+  paragraph: { color: theme.onSurface, fontSize: 14, marginVertical: 4 },
+  heading1: { color: theme.onSurface, fontSize: 20, fontWeight: 'bold' as const },
+  heading2: { color: theme.onSurface, fontSize: 18, fontWeight: 'bold' as const },
+  list_item: { color: theme.onSurface, fontSize: 14 },
+  bullet_list: { color: theme.onSurface },
+  ordered_list: { color: theme.onSurface },
+  hr: { backgroundColor: theme.outline, height: 1 },
+  code_inline: { backgroundColor: theme.surfaceContainerHigh, padding: 4, borderRadius: 4, fontFamily: 'monospace' },
+  strong: { fontWeight: 'bold' as const, color: theme.onSurface },
+  em: { fontStyle: 'italic' as const, color: theme.onSurface },
+});
 
 export default CheckInModal;
