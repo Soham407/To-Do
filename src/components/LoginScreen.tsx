@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../context/ThemeContext";
@@ -21,9 +22,36 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const triggerShake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, {
+        toValue: 10,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: -10,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 10,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 0,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
+      triggerShake();
       Alert.alert("Error", "Please enter both email and password.");
       return;
     }
@@ -36,9 +64,11 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
       });
 
       if (error) {
+        triggerShake();
         Alert.alert("Login Failed", error.message);
       }
     } catch (err: any) {
+      triggerShake();
       Alert.alert("Error", err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
@@ -55,7 +85,12 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
           Sign in to continue
         </Text>
 
-        <View style={styles.inputContainer}>
+        <Animated.View
+          style={[
+            styles.inputContainer,
+            { transform: [{ translateX: shakeAnim }] },
+          ]}
+        >
           <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
             Email
           </Text>
@@ -75,9 +110,14 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
             autoCapitalize="none"
             keyboardType="email-address"
           />
-        </View>
+        </Animated.View>
 
-        <View style={styles.inputContainer}>
+        <Animated.View
+          style={[
+            styles.inputContainer,
+            { transform: [{ translateX: shakeAnim }] },
+          ]}
+        >
           <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
             Password
           </Text>
@@ -96,7 +136,7 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
             onChangeText={setPassword}
             secureTextEntry
           />
-        </View>
+        </Animated.View>
 
         <TouchableOpacity
           style={[styles.button, { backgroundColor: theme.primary }]}

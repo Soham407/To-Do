@@ -25,7 +25,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 1. Initialize Supabase Client with the User's Auth Token
+    // 1. Initialize Supabase Client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -36,8 +36,7 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    // --- RATE LIMITING ---
-    // Check if user has exceeded daily limit (e.g., 20 requests per day)
+    // --- RATE LIMITING (20 req/day) ---
     const { count, error: countError } = await supabase
       .from("ai_usage_logs")
       .select("*", { count: "exact", head: true })
@@ -58,7 +57,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Log this request (ignore error if table doesn't exist yet)
     const { data: userData } = await supabase.auth.getUser();
     if (userData?.user) {
       await supabase
@@ -67,17 +65,13 @@ Deno.serve(async (req: Request) => {
     }
     // --- END RATE LIMITING ---
 
-    // 2. Fetch Existing Agendas (Long-Term Memory)
+    // 2. Fetch Existing Agendas
     const { data: existingAgendas, error: dbError } = await supabase
       .from("agendas")
       .select("title, type, total_target, unit, priority");
 
-    if (dbError) {
-      console.error("Database Error:", dbError);
-      // We don't crash, we just proceed without memory if DB fails
-    }
+    if (dbError) console.error("Database Error:", dbError);
 
-    // 3. Format them for the AI
     const memoryContext =
       existingAgendas && existingAgendas.length > 0
         ? existingAgendas
@@ -91,77 +85,102 @@ Deno.serve(async (req: Request) => {
     You are the "Goal Coach," an expert at productivity.
 
     ### YOUR OBJECTIVE
-    Turn user inputs into concrete Agendas.
+    Turn user inputs into concrete Agendas (Goals/Habits).
+    
+    ### THE "CATEGORIES" OF TASKS
+    You must intelligently categorize user requests into one of these structures:
 
-    ### CONVERSATION RULES (BE EFFICIENT)
-    1. **Context Check**: Look at the "LONG-TERM MEMORY". Do not duplicate goals.
+    1. **The "Duration Habit"** (Boolean + End Date)
+       - Input: "Go to gym for 30 days."
+       - Output: Type=BOOLEAN, startDate=Today, endDate=Today + 30 days.
 
-    2. **The "Why" Rule**: 
-       - If the goal is SIMPLE (e.g., "Read a book", "Walk 5k"), **SKIP** the deep motivation questions. Just ask for the numbers (Total target & Daily pace).
-       - ONLY ask "Why/Motivation" if the goal is VAGUE (e.g., "Change my life", "Get fit").
+    2. **The "Time-Bound Habit"** (Boolean + Reminder)
+       - Input: "Meditate at 8pm."
+       - Output: Type=BOOLEAN, reminderTime="20:00".
 
-    3. **Math & Dates (CRITICAL)**: 
-       - You MUST calculate the duration AND endDate. 
-       - Formula: Duration = Total Target / Daily Target. 
-       - Example: If Total=1000 and Daily=20, Duration=50 days.
-       - Calculate endDate: startDate + Duration days (use JavaScript Date math).
-       - Format dates as YYYY-MM-DD.
-       - ALWAYS include endDate in your JSON response when totalTarget and targetVal are provided.
-       - Example calculation: startDate="2024-01-01", Duration=50 → endDate="2024-02-20"
+    3. **The "Target Goal"** (Numeric + Calculated End Date)
+       - Input: "Read 1000 pages, 20 per day."
+       - Output: Type=NUMERIC, totalTarget=1000, targetVal=20, endDate=Calculated.
 
-    4. **Titling**:
-       - Use specific, short titles. 
-       - BAD: "Read 300 pages book"
-       - GOOD: "Reading: [Book Name]" or just "Reading Habit"
+    4. **The "Maintenance Goal"** (Numeric + Open Ended)
+       - Input: "Read 20 pages daily." (No total target).
+       - Output: Type=NUMERIC, targetVal=20, totalTarget=0 (or null), endDate=null.
 
-    ### TECHNICAL CONSTRAINTS (JSON)
-    - Respond with JSON when ready.
-    - JSON Structure:
+    ### CRITICAL RULES
+    1. **Math & Dates**: 
+       - Always calculate 'endDate' if a duration ("for 2 weeks") or a total target ("1000 pages") is implied.
+       - Formula: endDate = startDate + Duration.
+       - Use specific dates (YYYY-MM-DD).
+       - If no duration/total is specified, leave endDate as null (indefinite).
+
+    2. **Time Extraction**:
+       - If the user mentions a time (e.g., "at 6am", "at 20:00"), extract it into 'reminderTime' as "HH:mm" (24-hour format).
+
+    3. **The "Why" Rule**: 
+       - If the goal is clear (e.g., "Gym 30 days"), SKIP motivation questions. Just build it.
+       - Only ask "Why" if the input is vague ("I want to get fit").
+
+    ### JSON OUTPUT STRUCTURE
+    Respond ONLY with JSON.
     {
-      "message": "Brief confirmation.",
+      "message": "Confirmation text.",
       "is_ready": boolean,
       "agendas": [
         {
           "title": "String",
           "type": "NUMERIC" | "BOOLEAN",
           "priority": "HIGH" | "MEDIUM" | "LOW",
-          "totalTarget": number, 
-          "targetVal": number, // Daily amount
-          "unit": "string",
+          "totalTarget": number | null, 
+          "targetVal": number, // Daily amount (use 1 for boolean)
+          "unit": "string",    // e.g. "pages", "session"
           "isRecurring": true,
-          "startDate": "YYYY-MM-DD", // Today's date (use current date)
-          "endDate": "YYYY-MM-DD",   // REQUIRED: Calculate startDate + (totalTarget / targetVal) days
+          "startDate": "YYYY-MM-DD",
+          "endDate": "YYYY-MM-DD", // Optional: Only if duration/total exists
+          "reminderTime": "HH:mm", // Optional: "20:00" if user said "8pm"
           "bufferTokens": 3
         }
       ]
     }
-    
-    ### EXAMPLE RESPONSE:
-    User says: "I want to read 1000 pages, 20 pages daily"
-    You respond:
-    {
-      "message": "Perfect! I've set up your reading goal.",
-      "is_ready": true,
-      "agendas": [{
-        "title": "Reading Habit",
-        "type": "NUMERIC",
-        "priority": "MEDIUM",
-        "totalTarget": 1000,
-        "targetVal": 20,
-        "unit": "pages",
-        "isRecurring": true,
-        "startDate": "2024-12-27",
-        "endDate": "2025-02-15",
-        "bufferTokens": 3
-      }]
-    }
-    Note: endDate is 50 days after startDate (1000 / 20 = 50 days)
 
-    ### CURRENT USER CONTEXT (LONG-TERM MEMORY)
+    ### EXAMPLE SCENARIO
+    User: "I want to go to the gym for 30 days at 8pm, and also read 20 pages daily."
+    Response:
+    {
+      "message": "I've set up your 30-day gym challenge and your daily reading habit.",
+      "is_ready": true,
+      "agendas": [
+        {
+          "title": "Gym Session",
+          "type": "BOOLEAN",
+          "priority": "HIGH",
+          "targetVal": 1,
+          "unit": "check-in",
+          "isRecurring": true,
+          "startDate": "2024-01-01",
+          "endDate": "2024-01-31", // 30 days later
+          "reminderTime": "20:00", // 8pm
+          "bufferTokens": 3
+        },
+        {
+          "title": "Daily Reading",
+          "type": "NUMERIC",
+          "priority": "MEDIUM",
+          "totalTarget": null, // Open-ended
+          "targetVal": 20,
+          "unit": "pages",
+          "isRecurring": true,
+          "startDate": "2024-01-01",
+          "endDate": null, // Indefinite
+          "bufferTokens": 3
+        }
+      ]
+    }
+
+    ### CURRENT USER CONTEXT
     ${memoryContext}
     `;
 
-    // Map OpenAI-style messages to Gemini format
+    // Map Messages to Gemini
     const geminiContents = messages
       .filter((m: any) => m.role !== "system")
       .map((m: any) => ({
@@ -170,70 +189,39 @@ Deno.serve(async (req: Request) => {
       }));
 
     const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not set");
-    }
+    if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
 
-    console.log("Calling Gemini API...");
-    // Keeping your working model version
     const modelName = "gemini-2.5-flash";
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: geminiContents,
-          systemInstruction: {
-            parts: [{ text: systemPrompt }],
-          },
-          generationConfig: {
-            responseMimeType: "application/json",
-          },
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { responseMimeType: "application/json" },
         }),
       }
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API Error Response:", errorText);
       throw new Error(`Gemini API Error: ${errorText}`);
     }
 
     const data = await response.json();
+    const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    // Handle potential safety blocks or empty candidates
-    const candidate = data.candidates?.[0];
-    if (!candidate || !candidate.content) {
-      if (data.promptFeedback?.blockReason) {
-        throw new Error(
-          `Blocked by Gemini Safety: ${data.promptFeedback.blockReason}`
-        );
-      }
-      throw new Error(
-        "No response generated by Gemini (Safety or Filter issue)"
-      );
-    }
+    if (!textResult) throw new Error("Empty response from AI");
 
-    const textResult = candidate.content.parts?.[0]?.text;
-    if (!textResult) {
-      throw new Error("Empty text in Gemini response");
-    }
-
-    const result = JSON.parse(textResult);
-
-    return new Response(JSON.stringify(result), {
+    return new Response(textResult, {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error("Critical Error in chat-coach:", error.message);
+    console.error("Critical Error:", error.message);
     return new Response(
-      JSON.stringify({
-        error: error.message,
-        details: "Check Supabase project logs for full trace",
-      }),
+      JSON.stringify({ error: error.message }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

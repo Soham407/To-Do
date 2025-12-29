@@ -11,6 +11,7 @@ import {
   LayoutAnimation,
   UIManager,
   Alert,
+  Animated,
 } from "react-native";
 import { Agenda, AgendaType, ChatMessage } from "../types";
 import { generateId, getTodayDateString } from "../utils/logic";
@@ -18,6 +19,7 @@ import { useTheme } from "../context/ThemeContext";
 import { Send, ArrowLeft } from "lucide-react-native";
 import { supabase } from "../lib/supabase";
 import { MD3Theme } from "../theme";
+import SuccessCelebration from "./SuccessCelebration";
 
 // Enable LayoutAnimation for Android
 if (
@@ -47,6 +49,7 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -124,10 +127,12 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
           })
         );
 
-        // Allow user to read the message for a moment before completing
+        // Show celebration animation before completing
+        setShowCelebration(true);
         setTimeout(() => {
+          setShowCelebration(false);
           onComplete(newAgendas);
-        }, 1500);
+        }, 2500);
       } else {
         // Just a conversation reply
         if (message) {
@@ -162,13 +167,35 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
     }
   };
 
-  const renderItem = ({ item }: { item: ChatMessage }) => {
+  const AnimatedMessageBubble = ({ item }: { item: ChatMessage }) => {
     const isUser = item.sender === "user";
+    const slideAnim = useRef(new Animated.Value(20)).current;
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, []);
+
     return (
-      <View
+      <Animated.View
         style={[
           styles.messageContainer,
           isUser ? styles.alignRight : styles.alignLeft,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
         ]}
       >
         <View
@@ -184,8 +211,66 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
             {item.text}
           </Text>
         </View>
+      </Animated.View>
+    );
+  };
+
+  const TypingIndicator = ({ theme, styles }: any) => {
+    const bounce1 = useRef(new Animated.Value(0)).current;
+    const bounce2 = useRef(new Animated.Value(0)).current;
+    const bounce3 = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      const createBounceAnimation = (
+        animValue: Animated.Value,
+        delay: number
+      ) => {
+        return Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(animValue, {
+              toValue: -8,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.timing(animValue, {
+              toValue: 0,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+          ])
+        );
+      };
+
+      Animated.parallel([
+        createBounceAnimation(bounce1, 0),
+        createBounceAnimation(bounce2, 150),
+        createBounceAnimation(bounce3, 300),
+      ]).start();
+    }, []);
+
+    return (
+      <View style={styles.typingContainer}>
+        <View style={styles.typingBubble}>
+          <Animated.View
+            style={[styles.typingDot, { transform: [{ translateY: bounce1 }] }]}
+          />
+          <Animated.View
+            style={[
+              styles.typingDot,
+              { marginHorizontal: 4, transform: [{ translateY: bounce2 }] },
+            ]}
+          />
+          <Animated.View
+            style={[styles.typingDot, { transform: [{ translateY: bounce3 }] }]}
+          />
+        </View>
       </View>
     );
+  };
+
+  const renderItem = ({ item }: { item: ChatMessage }) => {
+    return <AnimatedMessageBubble item={item} />;
   };
 
   return (
@@ -205,15 +290,7 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListFooterComponent={
-          isTyping ? (
-            <View style={styles.typingContainer}>
-              <View style={styles.typingBubble}>
-                <View style={styles.typingDot} />
-                <View style={[styles.typingDot, { marginHorizontal: 4 }]} />
-                <View style={styles.typingDot} />
-              </View>
-            </View>
-          ) : null
+          isTyping ? <TypingIndicator theme={theme} styles={styles} /> : null
         }
       />
 
@@ -249,6 +326,10 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {showCelebration && (
+        <SuccessCelebration onComplete={() => setShowCelebration(false)} />
+      )}
     </View>
   );
 };

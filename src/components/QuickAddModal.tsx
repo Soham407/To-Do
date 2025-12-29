@@ -10,6 +10,7 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  Animated,
 } from "react-native";
 import { useTheme } from "../context/ThemeContext";
 import { Priority } from "../types";
@@ -57,6 +58,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   // Reset state when opening
   useEffect(() => {
@@ -67,10 +69,21 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
       setReminderOption("None");
       setCustomTime(new Date());
       setCustomDate(getLocalDateString());
+
+      // Spring animation for modal appearance
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+
       // Auto-focus after a short delay to allow modal animation
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
+    } else {
+      scaleAnim.setValue(0.9);
     }
   }, [isOpen]);
 
@@ -147,7 +160,9 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
           <View style={styles.backdrop} />
         </TouchableWithoutFeedback>
 
-        <View style={styles.container}>
+        <Animated.View
+          style={[styles.container, { transform: [{ scale: scaleAnim }] }]}
+        >
           <View style={styles.header}>
             <Text style={styles.title}>New Task</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -381,7 +396,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
           >
             <Text style={styles.saveButtonText}>Create Task</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
 
       {/* Nested Calendar Modal for date picking */}

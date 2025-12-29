@@ -1,5 +1,11 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+} from "react-native";
 import {
   Check,
   AlertCircle,
@@ -35,16 +41,99 @@ const NumericProgressBar: React.FC<{
 }> = ({ percentage, status, theme, styles }) => {
   const isFailed = status === TaskStatus.FAILED;
   const barColor = isFailed ? theme.error : theme.primary;
+  const animatedWidth = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedWidth, {
+      toValue: percentage,
+      duration: 500,
+      useNativeDriver: false,
+    }).start();
+  }, [percentage]);
 
   return (
     <View style={styles.progresBarTrack}>
-      <View
+      <Animated.View
         style={[
           styles.progressBarFill,
-          { width: `${percentage}%`, backgroundColor: barColor },
+          {
+            width: animatedWidth.interpolate({
+              inputRange: [0, 100],
+              outputRange: ["0%", "100%"],
+            }),
+            backgroundColor: barColor,
+          },
         ]}
       />
     </View>
+  );
+};
+
+const StreakFlame: React.FC<{ streak: number }> = ({ streak }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0.2)).current;
+
+  useEffect(() => {
+    if (streak >= 7) {
+      // Pulse animation for high streaks
+      Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(pulseAnim, {
+              toValue: 1.2,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(glowAnim, {
+              toValue: 0.5,
+              duration: 1000,
+              useNativeDriver: false,
+            }),
+          ]),
+          Animated.parallel([
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(glowAnim, {
+              toValue: 0.2,
+              duration: 1000,
+              useNativeDriver: false,
+            }),
+          ]),
+        ])
+      ).start();
+    }
+  }, [streak]);
+
+  return (
+    <Animated.View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: glowAnim.interpolate({
+          inputRange: [0.2, 0.5],
+          outputRange: ["#FFC10720", "#FFC10740"],
+        }),
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 100,
+        transform: [{ scale: pulseAnim }],
+      }}
+    >
+      <Flame size={10} color="#FFC107" fill="#FFC107" />
+      <Text
+        style={{
+          fontSize: 10,
+          color: "#FF9800",
+          fontWeight: "bold",
+          marginLeft: 2,
+        }}
+      >
+        {streak}
+      </Text>
+    </Animated.View>
   );
 };
 
@@ -157,28 +246,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 {agenda.title}
               </Text>
               {streak !== undefined && streak > 2 && (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    backgroundColor: "#FFC10720",
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                    borderRadius: 100,
-                  }}
-                >
-                  <Flame size={10} color="#FFC107" fill="#FFC107" />
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      color: "#FF9800",
-                      fontWeight: "bold",
-                      marginLeft: 2,
-                    }}
-                  >
-                    {streak}
-                  </Text>
-                </View>
+                <StreakFlame streak={streak} />
               )}
             </View>
             <Text style={styles.cardSubtitle}>
