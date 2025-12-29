@@ -12,8 +12,8 @@ import {
   Keyboard,
   Animated,
 } from "react-native";
-import { useTheme } from "../context/ThemeContext";
-import { Priority } from "../types";
+import { useTheme } from "../../context/ThemeContext";
+import { Priority } from "../../types";
 import {
   X,
   Calendar as CalendarIcon,
@@ -23,7 +23,7 @@ import {
   Clock,
 } from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { getLocalDateString } from "../utils/logic";
+import { getLocalDateString } from "../../utils/logic";
 import CalendarModal from "./CalendarModal";
 
 interface QuickAddModalProps {

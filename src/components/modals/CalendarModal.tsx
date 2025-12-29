@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../../context/ThemeContext";
 import { X } from "lucide-react-native";
 
 interface CalendarModalProps {

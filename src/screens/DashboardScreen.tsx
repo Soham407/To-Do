@@ -19,16 +19,16 @@ import {
   Plus,
 } from "lucide-react-native";
 import { Agenda, DailyTask, TaskStatus, Priority } from "../types";
-import CheckInModal from "./CheckInModal";
-import CalendarModal from "./CalendarModal";
-import GoalSettingsModal from "./GoalSettingsModal";
-import ProfileModal from "./ProfileModal";
-import QuickAddModal from "./QuickAddModal";
+import CheckInModal from "../components/modals/CheckInModal";
+import CalendarModal from "../components/modals/CalendarModal";
+import GoalSettingsModal from "../components/modals/GoalSettingsModal";
+import ProfileModal from "../components/modals/ProfileModal";
+import QuickAddModal from "../components/modals/QuickAddModal";
 import { getLocalDateString, parseLocalIsoDate } from "../utils/logic";
 import { useTheme } from "../context/ThemeContext";
 import { calculateStreak } from "../utils/insightsLogic";
-import { getDashboardStyles } from "./dashboard/DashboardStyles";
-import TaskCard from "./dashboard/TaskCard";
+import { getDashboardStyles } from "../components/dashboard/DashboardStyles";
+import TaskCard from "../components/dashboard/TaskCard";
 
 interface DashboardProps {
   agendas: Agenda[];

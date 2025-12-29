@@ -18,7 +18,7 @@ import {
 } from "../types";
 import { useTheme, ThemeType } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../api/supabase";
 import {
   Trophy,
   AlertTriangle,

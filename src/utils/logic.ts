@@ -2,7 +2,7 @@ import { DailyTask, TaskStatus, Agenda, AgendaType } from "../types";
 
 import * as Crypto from "expo-crypto";
 
-import { APP_CONSTANTS } from "../constants";
+import { APP_CONSTANTS } from "../config/constants";
 
 export const generateId = () => Crypto.randomUUID();
 

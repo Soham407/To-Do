@@ -9,9 +9,9 @@ import {
   ActivityIndicator,
   Animated,
 } from "react-native";
-import { supabase } from "../lib/supabase";
-import { useTheme } from "../context/ThemeContext";
-import { Fonts } from "../theme";
+import { supabase } from "../../api/supabase";
+import { useTheme } from "../../context/ThemeContext";
+import { Fonts } from "../../config/theme";
 
 interface LoginScreenProps {
   onSignup: () => void;

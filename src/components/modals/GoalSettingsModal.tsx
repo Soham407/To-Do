@@ -11,8 +11,8 @@ import {
   Platform,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Agenda, AgendaType } from "../types";
-import { useTheme, ThemeType } from "../context/ThemeContext";
+import { Agenda, AgendaType } from "../../types";
+import { useTheme, ThemeType } from "../../context/ThemeContext";
 import { X, Trash2, Save } from "lucide-react-native";
 
 interface Props {
@@ -49,14 +49,14 @@ const GoalSettingsModal: React.FC<Props> = ({
     "e.g. Read 15 mins",
     "e.g. 50 Pushups",
     "e.g. Learn Spanish",
-    "e.g. Drink 3L Water"
+    "e.g. Drink 3L Water",
   ];
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
 
   React.useEffect(() => {
-    if(!isOpen) return;
+    if (!isOpen) return;
     const interval = setInterval(() => {
-        setPlaceholderIndex(prev => (prev + 1) % placeholders.length);
+      setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
     }, 3000);
     return () => clearInterval(interval);
   }, [isOpen]);
@@ -126,10 +126,10 @@ const GoalSettingsModal: React.FC<Props> = ({
       }
       const newTargetVal = parseInt(trimmedTarget, 10);
       updates.targetVal = newTargetVal;
-      
+
       // If totalTarget exists, keep it consistent, otherwise initialize it
       if (!updates.totalTarget) {
-          updates.totalTarget = newTargetVal * DAYS_IN_MONTH; 
+        updates.totalTarget = newTargetVal * DAYS_IN_MONTH;
       }
     }
     onUpdateAgenda(updates);
@@ -167,7 +167,7 @@ const GoalSettingsModal: React.FC<Props> = ({
               style={styles.input}
               value={title}
               placeholder={title ? "" : placeholders[placeholderIndex]}
-              placeholderTextColor={theme.onSurfaceVariant + '80'}
+              placeholderTextColor={theme.onSurfaceVariant + "80"}
               onChangeText={setTitle}
             />
           </View>

@@ -1,5 +1,5 @@
 import { StyleSheet, Dimensions } from "react-native";
-import { MD3Theme } from "../../theme";
+import { MD3Theme, Fonts } from "../../config/theme";
 
 export const getDashboardStyles = (theme: MD3Theme) =>
   StyleSheet.create({
@@ -28,6 +28,7 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     searchInput: {
       fontSize: 16,
       color: theme.onSurface,
+      fontFamily: Fonts.regular,
     },
     filterScroll: {
       marginBottom: 8,
@@ -47,7 +48,7 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     filterText: {
       fontSize: 14,
       color: theme.onSurfaceVariant,
-      fontWeight: "500",
+      fontFamily: Fonts.medium,
     },
     filterTextActive: {
       color: theme.onSecondaryContainer,
@@ -62,12 +63,12 @@ export const getDashboardStyles = (theme: MD3Theme) =>
       alignItems: "center",
       color: theme.onSurfaceVariant,
       fontSize: 14,
-      fontWeight: "500",
+      fontFamily: Fonts.medium,
     },
     dateTitle: {
       fontSize: 32,
       color: theme.onSurface,
-      fontWeight: "400",
+      fontFamily: Fonts.regular,
     },
     profileBtn: {
       padding: 8,
@@ -78,7 +79,7 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     },
     sectionTitle: {
       fontSize: 14,
-      fontWeight: "500",
+      fontFamily: Fonts.medium,
       color: theme.primary,
       marginLeft: 4,
       marginBottom: 12,
@@ -113,12 +114,13 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     },
     cardTitle: {
       fontSize: 16,
-      fontWeight: "400",
+      fontFamily: Fonts.regular,
       color: theme.onSurface,
       marginRight: 40,
     },
     cardSubtitle: {
       fontSize: 12,
+      fontFamily: Fonts.regular,
       color: theme.onSurfaceVariant,
       marginTop: 2,
     },
@@ -133,6 +135,7 @@ export const getDashboardStyles = (theme: MD3Theme) =>
       marginTop: 8,
       marginLeft: 40,
       fontSize: 12,
+      fontFamily: Fonts.regular,
       fontStyle: "italic",
       color: theme.onSurfaceVariant,
     },
@@ -143,6 +146,7 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     },
     recalcText: {
       fontSize: 8,
+      fontFamily: Fonts.bold,
       color: theme.primary,
     },
     progresBarTrack: {
@@ -182,7 +186,7 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     },
     columnTitle: {
       fontSize: 16,
-      fontWeight: "600",
+      fontFamily: Fonts.bold,
       color: theme.onSurface,
     },
     countBadge: {
@@ -192,7 +196,7 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     },
     countText: {
       fontSize: 12,
-      fontWeight: "bold",
+      fontFamily: Fonts.bold,
     },
     viewToggleBtn: {
       padding: 10,
@@ -212,11 +216,13 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     },
     emptyTitle: {
       fontSize: 18,
+      fontFamily: Fonts.bold,
       color: theme.onSurface,
       marginBottom: 8,
     },
     emptyText: {
       fontSize: 14,
+      fontFamily: Fonts.regular,
       color: theme.onSurfaceVariant,
       marginBottom: 24,
       textAlign: "center",
@@ -229,7 +235,7 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     },
     createBtnText: {
       color: theme.onPrimary,
-      fontWeight: "500",
+      fontFamily: Fonts.medium,
     },
     fab: {
       position: "absolute",

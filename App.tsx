@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Layout from "./src/components/Layout";
-import Dashboard from "./src/components/Dashboard";
-import OnboardingChat from "./src/components/OnboardingChat";
-import ReportView from "./src/components/ReportView";
+import Layout from "./src/components/common/Layout";
+import DashboardScreen from "./src/screens/DashboardScreen";
+import OnboardingChat from "./src/components/onboarding/OnboardingChat";
+import ReportScreen from "./src/screens/ReportScreen";
 import { Agenda, DailyTask, AgendaType, Priority } from "./src/types";
 import { ThemeProvider } from "./src/context/ThemeContext";
 import {
@@ -14,14 +14,28 @@ import {
   getTodayDateString,
   generateId,
 } from "./src/utils/logic";
-import { APP_CONSTANTS } from "./src/constants";
+import { APP_CONSTANTS } from "./src/config/constants";
 import { StatusBar } from "expo-status-bar";
 import { migrateLocalDataToSupabase } from "./src/utils/migration";
-import { NotificationService } from "./src/services/NotificationService"; // Import Service
+import { NotificationService } from "./src/api/NotificationService"; // Import Service
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
-import LoginScreen from "./src/components/LoginScreen";
-import SignupScreen from "./src/components/SignupScreen";
+import LoginScreen from "./src/screens/auth/LoginScreen";
+import SignupScreen from "./src/screens/auth/SignupScreen";
+
+// Custom Fonts
+import {
+  useFonts,
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_700Bold,
+} from "@expo-google-fonts/outfit";
+import * as SplashScreen from "expo-splash-screen";
+
+// Keep splash screen visible while fonts load
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* ignore error */
+});
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -41,7 +55,7 @@ class ErrorBoundary extends React.Component<
       return (
         <SafeAreaProvider>
           <Layout showNav={false} activeTab="dashboard" onTabChange={() => {}}>
-            <Dashboard
+            <DashboardScreen
               agendas={[]}
               tasks={[]}
               onUpdateTask={() => {}}
@@ -59,6 +73,25 @@ class ErrorBoundary extends React.Component<
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_700Bold,
+  });
+
+  // Hide splash screen once fonts are ready
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync().catch(() => {
+        /* ignore error */
+      });
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <ErrorBoundary>
       <ThemeProvider>
@@ -351,7 +384,7 @@ function MainApp() {
         );
       case "dashboard":
         return (
-          <Dashboard
+          <DashboardScreen
             agendas={agendas}
             tasks={tasks}
             onUpdateTask={handleUpdateTask}
@@ -363,7 +396,7 @@ function MainApp() {
           />
         );
       case "report":
-        return <ReportView tasks={tasks} agendas={agendas} />;
+        return <ReportScreen tasks={tasks} agendas={agendas} />;
       default:
         return null;
     }

@@ -98,7 +98,7 @@ export const MD3DarkTheme = {
 export type MD3Theme = typeof MD3LightTheme;
 
 export const Fonts = {
-  regular: "System",
-  medium: "System",
-  bold: "System",
+  regular: "Outfit_400Regular",
+  medium: "Outfit_500Medium",
+  bold: "Outfit_700Bold",
 };

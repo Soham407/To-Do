@@ -81,8 +81,15 @@ Deno.serve(async (req: Request) => {
             .join("\n")
         : "The user has no active goals yet.";
 
+    // Get today's date for the AI to use dynamically
+    const today = new Date();
+    const todayISO = today.toISOString().substring(0, 10); // YYYY-MM-DD
+
     const systemPrompt = `
     You are the "Goal Coach," an expert at productivity.
+
+    ### TODAY'S DATE
+    Today is ${todayISO}. Use this as the reference point for all date calculations.
 
     ### YOUR OBJECTIVE
     Turn user inputs into concrete Agendas (Goals/Habits).
@@ -92,7 +99,7 @@ Deno.serve(async (req: Request) => {
 
     1. **The "Duration Habit"** (Boolean + End Date)
        - Input: "Go to gym for 30 days."
-       - Output: Type=BOOLEAN, startDate=Today, endDate=Today + 30 days.
+       - Output: Type=BOOLEAN, startDate=${todayISO}, endDate=(startDate + 30 days).
 
     2. **The "Time-Bound Habit"** (Boolean + Reminder)
        - Input: "Meditate at 8pm."
@@ -100,7 +107,7 @@ Deno.serve(async (req: Request) => {
 
     3. **The "Target Goal"** (Numeric + Calculated End Date)
        - Input: "Read 1000 pages, 20 per day."
-       - Output: Type=NUMERIC, totalTarget=1000, targetVal=20, endDate=Calculated.
+       - Output: Type=NUMERIC, totalTarget=1000, targetVal=20, endDate=(startDate + ceil(1000/20) days).
 
     4. **The "Maintenance Goal"** (Numeric + Open Ended)
        - Input: "Read 20 pages daily." (No total target).
@@ -108,7 +115,8 @@ Deno.serve(async (req: Request) => {
 
     ### CRITICAL RULES
     1. **Math & Dates**: 
-       - Always calculate 'endDate' if a duration ("for 2 weeks") or a total target ("1000 pages") is implied.
+       - **startDate MUST ALWAYS be today (${todayISO}) unless user specifies a different start date.**
+       - Calculate 'endDate' if a duration ("for 2 weeks") or a total target ("1000 pages") is implied.
        - Formula: endDate = startDate + Duration.
        - Use specific dates (YYYY-MM-DD).
        - If no duration/total is specified, leave endDate as null (indefinite).
@@ -134,43 +142,9 @@ Deno.serve(async (req: Request) => {
           "targetVal": number, // Daily amount (use 1 for boolean)
           "unit": "string",    // e.g. "pages", "session"
           "isRecurring": true,
-          "startDate": "YYYY-MM-DD",
+          "startDate": "YYYY-MM-DD", // MUST be today unless user specifies otherwise
           "endDate": "YYYY-MM-DD", // Optional: Only if duration/total exists
           "reminderTime": "HH:mm", // Optional: "20:00" if user said "8pm"
-          "bufferTokens": 3
-        }
-      ]
-    }
-
-    ### EXAMPLE SCENARIO
-    User: "I want to go to the gym for 30 days at 8pm, and also read 20 pages daily."
-    Response:
-    {
-      "message": "I've set up your 30-day gym challenge and your daily reading habit.",
-      "is_ready": true,
-      "agendas": [
-        {
-          "title": "Gym Session",
-          "type": "BOOLEAN",
-          "priority": "HIGH",
-          "targetVal": 1,
-          "unit": "check-in",
-          "isRecurring": true,
-          "startDate": "2024-01-01",
-          "endDate": "2024-01-31", // 30 days later
-          "reminderTime": "20:00", // 8pm
-          "bufferTokens": 3
-        },
-        {
-          "title": "Daily Reading",
-          "type": "NUMERIC",
-          "priority": "MEDIUM",
-          "totalTarget": null, // Open-ended
-          "targetVal": 20,
-          "unit": "pages",
-          "isRecurring": true,
-          "startDate": "2024-01-01",
-          "endDate": null, // Indefinite
           "bufferTokens": 3
         }
       ]
@@ -220,12 +194,9 @@ Deno.serve(async (req: Request) => {
     });
   } catch (error: any) {
     console.error("Critical Error:", error.message);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

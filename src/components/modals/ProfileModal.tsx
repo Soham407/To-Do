@@ -10,9 +10,9 @@ import {
   Image,
   Alert,
 } from "react-native";
-import { useTheme } from "../context/ThemeContext";
-import { useAuth } from "../context/AuthContext";
-import { supabase } from "../lib/supabase";
+import { useTheme } from "../../context/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
+import { supabase } from "../../api/supabase";
 import {
   X,
   User,

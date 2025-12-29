@@ -20,7 +20,7 @@ import {
 } from "lucide-react-native";
 import { DailyTask, Agenda, TaskStatus, AgendaType } from "../../types";
 import { getLocalDateString } from "../../utils/logic";
-import { MD3Theme } from "../../theme";
+import { MD3Theme } from "../../config/theme";
 
 interface TaskCardProps {
   task: DailyTask;

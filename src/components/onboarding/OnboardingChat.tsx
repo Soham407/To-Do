@@ -13,13 +13,13 @@ import {
   Alert,
   Animated,
 } from "react-native";
-import { Agenda, AgendaType, ChatMessage } from "../types";
-import { generateId, getTodayDateString } from "../utils/logic";
-import { useTheme } from "../context/ThemeContext";
+import { Agenda, AgendaType, ChatMessage } from "../../types";
+import { generateId, getTodayDateString } from "../../utils/logic";
+import { useTheme } from "../../context/ThemeContext";
 import { Send, ArrowLeft } from "lucide-react-native";
-import { supabase } from "../lib/supabase";
-import { MD3Theme } from "../theme";
-import SuccessCelebration from "./SuccessCelebration";
+import { supabase } from "../../api/supabase";
+import { MD3Theme, Fonts } from "../../config/theme";
+import SuccessCelebration from "../common/SuccessCelebration";
 
 // Enable LayoutAnimation for Android
 if (
@@ -33,6 +33,114 @@ interface OnboardingChatProps {
   onComplete: (agenda: Agenda | Agenda[]) => void;
   onCancel: () => void;
 }
+
+const AnimatedMessageBubble = ({
+  item,
+  styles,
+}: {
+  item: ChatMessage;
+  styles: any;
+}) => {
+  const isUser = item.sender === "user";
+  const slideAnim = useRef(new Animated.Value(20)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.messageContainer,
+        isUser ? styles.alignRight : styles.alignLeft,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.bubble,
+          isUser ? styles.userBubble : styles.botBubble,
+          isUser ? styles.roundBottomRight : styles.roundBottomLeft,
+        ]}
+      >
+        <Text
+          style={[styles.msgText, isUser ? styles.userText : styles.botText]}
+        >
+          {item.text}
+        </Text>
+      </View>
+    </Animated.View>
+  );
+};
+
+const TypingIndicator = ({ styles }: any) => {
+  const bounce1 = useRef(new Animated.Value(0)).current;
+  const bounce2 = useRef(new Animated.Value(0)).current;
+  const bounce3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const createBounceAnimation = (
+      animValue: Animated.Value,
+      delay: number
+    ) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(animValue, {
+            toValue: -8,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animValue, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    Animated.parallel([
+      createBounceAnimation(bounce1, 0),
+      createBounceAnimation(bounce2, 150),
+      createBounceAnimation(bounce3, 300),
+    ]).start();
+  }, []);
+
+  return (
+    <View style={styles.typingContainer}>
+      <View style={styles.typingBubble}>
+        <Animated.View
+          style={[styles.typingDot, { transform: [{ translateY: bounce1 }] }]}
+        />
+        <Animated.View
+          style={[
+            styles.typingDot,
+            { marginHorizontal: 4, transform: [{ translateY: bounce2 }] },
+          ]}
+        />
+        <Animated.View
+          style={[styles.typingDot, { transform: [{ translateY: bounce3 }] }]}
+        />
+      </View>
+    </View>
+  );
+};
 
 const OnboardingChat: React.FC<OnboardingChatProps> = ({
   onComplete,
@@ -167,110 +275,8 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
     }
   };
 
-  const AnimatedMessageBubble = ({ item }: { item: ChatMessage }) => {
-    const isUser = item.sender === "user";
-    const slideAnim = useRef(new Animated.Value(20)).current;
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-      Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, []);
-
-    return (
-      <Animated.View
-        style={[
-          styles.messageContainer,
-          isUser ? styles.alignRight : styles.alignLeft,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
-        <View
-          style={[
-            styles.bubble,
-            isUser ? styles.userBubble : styles.botBubble,
-            isUser ? styles.roundBottomRight : styles.roundBottomLeft,
-          ]}
-        >
-          <Text
-            style={[styles.msgText, isUser ? styles.userText : styles.botText]}
-          >
-            {item.text}
-          </Text>
-        </View>
-      </Animated.View>
-    );
-  };
-
-  const TypingIndicator = ({ theme, styles }: any) => {
-    const bounce1 = useRef(new Animated.Value(0)).current;
-    const bounce2 = useRef(new Animated.Value(0)).current;
-    const bounce3 = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-      const createBounceAnimation = (
-        animValue: Animated.Value,
-        delay: number
-      ) => {
-        return Animated.loop(
-          Animated.sequence([
-            Animated.delay(delay),
-            Animated.timing(animValue, {
-              toValue: -8,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(animValue, {
-              toValue: 0,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-          ])
-        );
-      };
-
-      Animated.parallel([
-        createBounceAnimation(bounce1, 0),
-        createBounceAnimation(bounce2, 150),
-        createBounceAnimation(bounce3, 300),
-      ]).start();
-    }, []);
-
-    return (
-      <View style={styles.typingContainer}>
-        <View style={styles.typingBubble}>
-          <Animated.View
-            style={[styles.typingDot, { transform: [{ translateY: bounce1 }] }]}
-          />
-          <Animated.View
-            style={[
-              styles.typingDot,
-              { marginHorizontal: 4, transform: [{ translateY: bounce2 }] },
-            ]}
-          />
-          <Animated.View
-            style={[styles.typingDot, { transform: [{ translateY: bounce3 }] }]}
-          />
-        </View>
-      </View>
-    );
-  };
-
   const renderItem = ({ item }: { item: ChatMessage }) => {
-    return <AnimatedMessageBubble item={item} />;
+    return <AnimatedMessageBubble item={item} styles={styles} />;
   };
 
   return (
@@ -290,7 +296,7 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListFooterComponent={
-          isTyping ? <TypingIndicator theme={theme} styles={styles} /> : null
+          isTyping ? <TypingIndicator styles={styles} /> : null
         }
       />
 
@@ -361,6 +367,7 @@ const getStyles = (theme: MD3Theme) =>
     },
     headerTitle: {
       fontSize: 20,
+      fontFamily: Fonts.bold,
       color: theme.onSurface,
     },
     listContent: {
@@ -397,6 +404,7 @@ const getStyles = (theme: MD3Theme) =>
     },
     msgText: {
       fontSize: 16,
+      fontFamily: Fonts.regular,
       lineHeight: 22,
     },
     userText: {
@@ -443,6 +451,7 @@ const getStyles = (theme: MD3Theme) =>
     input: {
       flex: 1,
       fontSize: 16,
+      fontFamily: Fonts.regular,
       color: theme.onSurface,
       paddingHorizontal: 12,
       paddingVertical: 8,

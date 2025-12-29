@@ -16,12 +16,12 @@ import {
   FailureTag,
   AgendaType,
   Subtask,
-} from "../types";
-import { useTheme } from "../context/ThemeContext";
+} from "../../types";
+import { useTheme } from "../../context/ThemeContext";
 import { X, Check, Plus, Trash, Edit3, Eye } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
-import { generateId, sanitizeMarkdown } from "../utils/logic";
-import { MD3Theme } from "../theme";
+import { generateId, sanitizeMarkdown } from "../../utils/logic";
+import { MD3Theme } from "../../config/theme";
 
 interface Props {
   isOpen: boolean;

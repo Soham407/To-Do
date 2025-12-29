@@ -8,9 +8,9 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { supabase } from "../lib/supabase";
-import { useTheme } from "../context/ThemeContext";
-import { Fonts } from "../theme";
+import { supabase } from "../../api/supabase";
+import { useTheme } from "../../context/ThemeContext";
+import { Fonts } from "../../config/theme";
 
 interface SignupScreenProps {
   onLogin: () => void;
