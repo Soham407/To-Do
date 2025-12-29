@@ -19,7 +19,9 @@ import {
   Flag,
   Check,
   Bell,
+  Clock,
 } from "lucide-react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { getLocalDateString } from "../utils/logic";
 import CalendarModal from "./CalendarModal";
 
@@ -49,8 +51,10 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
   const [customDate, setCustomDate] = useState(getLocalDateString());
   const [priority, setPriority] = useState<Priority>(Priority.MEDIUM);
   const [reminderOption, setReminderOption] = useState<
-    "None" | "Morning" | "Afternoon" | "Evening"
+    "None" | "Morning" | "Afternoon" | "Evening" | "Custom"
   >("None");
+  const [customTime, setCustomTime] = useState<Date>(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
@@ -61,6 +65,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
       setDateOption("Today");
       setPriority(Priority.MEDIUM);
       setReminderOption("None");
+      setCustomTime(new Date());
       setCustomDate(getLocalDateString());
       // Auto-focus after a short delay to allow modal animation
       setTimeout(() => {
@@ -87,6 +92,9 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
       if (reminderOption === "Morning") d.setHours(9, 0, 0, 0);
       else if (reminderOption === "Afternoon") d.setHours(13, 0, 0, 0);
       else if (reminderOption === "Evening") d.setHours(18, 0, 0, 0);
+      else if (reminderOption === "Custom") {
+        d.setHours(customTime.getHours(), customTime.getMinutes(), 0, 0);
+      }
       reminderTime = d.toISOString();
     }
 
@@ -112,14 +120,14 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
     "e.g. Read 10 pages",
     "e.g. Call Mom",
     "e.g. Project Review",
-    "e.g. Drink Water"
+    "e.g. Drink Water",
   ];
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
 
   useEffect(() => {
-    if(!isOpen) return;
+    if (!isOpen) return;
     const interval = setInterval(() => {
-        setPlaceholderIndex(prev => (prev + 1) % placeholders.length);
+      setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
     }, 3000);
     return () => clearInterval(interval);
   }, [isOpen]);
@@ -293,41 +301,78 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
           <View style={[styles.optionsRow, { marginTop: 16 }]}>
             {/* Reminder Section (Simplified for MVP: Quick Slots) */}
             <View style={styles.optionGroup}>
-              <Text style={styles.optionLabel}>Reminder</Text>
+              <Text style={styles.optionLabel}>Due Time / Reminder</Text>
               <View style={styles.chipsContainer}>
-                {(["None", "Morning", "Afternoon", "Evening"] as const).map(
-                  (r) => {
-                    const isSelected = reminderOption === r;
-                    return (
-                      <TouchableOpacity
-                        key={r}
+                {(
+                  ["None", "Morning", "Afternoon", "Evening", "Custom"] as const
+                ).map((r) => {
+                  const isSelected = reminderOption === r;
+                  return (
+                    <TouchableOpacity
+                      key={r}
+                      style={[
+                        styles.chip,
+                        isSelected && {
+                          backgroundColor: theme.secondaryContainer,
+                          borderColor: theme.secondary,
+                        },
+                      ]}
+                      onPress={() => {
+                        setReminderOption(r);
+                        if (r === "Custom") {
+                          setShowTimePicker(true);
+                        }
+                      }}
+                    >
+                      {r === "Custom" && (
+                        <Clock
+                          size={14}
+                          color={
+                            isSelected
+                              ? theme.onSecondaryContainer
+                              : theme.onSurfaceVariant
+                          }
+                          style={{ marginRight: 4 }}
+                        />
+                      )}
+                      <Text
                         style={[
-                          styles.chip,
+                          styles.chipText,
                           isSelected && {
-                            backgroundColor: theme.secondaryContainer,
-                            borderColor: theme.secondary,
+                            color: theme.onSecondaryContainer,
+                            fontWeight: "600",
                           },
                         ]}
-                        onPress={() => setReminderOption(r)}
                       >
-                        <Text
-                          style={[
-                            styles.chipText,
-                            isSelected && {
-                              color: theme.onSecondaryContainer,
-                              fontWeight: "600",
-                            },
-                          ]}
-                        >
-                          {r}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  }
-                )}
+                        {r === "Custom" && reminderOption === "Custom"
+                          ? customTime.toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : r}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           </View>
+
+          {showTimePicker && (
+            <DateTimePicker
+              value={customTime}
+              mode="time"
+              is24Hour={false}
+              display="default"
+              onChange={(event, date) => {
+                setShowTimePicker(Platform.OS === "ios");
+                if (event.type === "set" && date) {
+                  setCustomTime(date);
+                  setReminderOption("Custom");
+                }
+              }}
+            />
+          )}
 
           <TouchableOpacity
             style={[styles.saveButton, !title.trim() && styles.disabledButton]}

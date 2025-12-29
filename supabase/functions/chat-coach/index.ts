@@ -1,17 +1,49 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { messages } = await req.json()
+    const { messages } = await req.json();
+
+    // 1. Initialize Supabase Client with the User's Auth Token
+    // This ensures we only fetch THEIR goals, respecting Row Level Security (RLS)
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: req.headers.get("Authorization")! },
+        },
+      }
+    );
+
+    // 2. Fetch Existing Agendas (Long-Term Memory)
+    const { data: existingAgendas, error: dbError } = await supabase
+      .from("agendas")
+      .select("title, type, totalTarget, unit, priority");
+
+    if (dbError) {
+      console.error("Database Error:", dbError);
+      // We don't crash, we just proceed without memory if DB fails
+    }
+
+    // 3. Format them for the AI
+    const memoryContext =
+      existingAgendas && existingAgendas.length > 0
+        ? existingAgendas
+            .map((a) => `- ${a.title} (${a.type}: ${a.totalTarget || "Daily"})`)
+            .join("\n")
+        : "The user has no active goals yet.";
 
     const systemPrompt = `
     You are the "Goal Coach," an expert at behavioral psychology and goal decomposition.
@@ -19,6 +51,10 @@ Deno.serve(async (req: Request) => {
     ### YOUR OBJECTIVE
     Your job is to help the user turn vague ambitions into concrete, manageable habits and tasks. 
     You must interview the user to uncover their "Why" (motivation) and then decompose their ambition into 1-3 specific Agendas.
+
+    ### CURRENT USER CONTEXT (LONG-TERM MEMORY)
+    The user ALREADY has the following active goals. Do NOT create duplicates. If their new request overlaps, ask if they want to modify the existing one instead:
+    ${memoryContext}
 
     ### CONVERSATION RULES
     1. **Start**: Ask what their major goal or project is.
@@ -46,7 +82,8 @@ Deno.serve(async (req: Request) => {
           "unit": "string", // e.g., "pages", "kms", "sessions"
           "isRecurring": boolean,
           "bufferTokens": 3,
-          "startDate": "${new Date().toISOString().split('T')[0]}"
+          "reminderTime": string, // Optional: ISO string if user specifices a time
+          "startDate": "${new Date().toISOString().split("T")[0]}"
         }
       ]
     }
@@ -74,39 +111,39 @@ Deno.serve(async (req: Request) => {
         { "title": "Thesis Drafting", "type": "NUMERIC", "totalTarget": 100, "targetVal": 3, "unit": "pages", "priority": "HIGH", "isRecurring": true, "bufferTokens": 3 }
       ]
     }
-    `
+    `;
 
     // Map OpenAI-style messages to Gemini format
     const geminiContents = messages
-      .filter((m: any) => m.role !== 'system') // System prompt handled separately
+      .filter((m: any) => m.role !== "system") // System prompt handled separately
       .map((m: any) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
       }));
 
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not set');
+      throw new Error("GEMINI_API_KEY is not set");
     }
 
     console.log("Calling Gemini API...");
-    // Upgraded to gemini-2.5-flash as 1.5-flash is deprecated/not found in v1beta (Dec 2025)
-    const modelName = 'gemini-2.5-flash'; 
+    // Keeping your working model version
+    const modelName = "gemini-2.5-flash";
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           contents: geminiContents,
           systemInstruction: {
-            parts: [{ text: systemPrompt }]
+            parts: [{ text: systemPrompt }],
           },
           generationConfig: {
-            responseMimeType: "application/json"
-          }
+            responseMimeType: "application/json",
+          },
         }),
       }
     );
@@ -118,15 +155,18 @@ Deno.serve(async (req: Request) => {
     }
 
     const data = await response.json();
-    console.log("Gemini Response Data:", JSON.stringify(data));
 
     // Handle potential safety blocks or empty candidates
     const candidate = data.candidates?.[0];
     if (!candidate || !candidate.content) {
       if (data.promptFeedback?.blockReason) {
-         throw new Error(`Blocked by Gemini Safety: ${data.promptFeedback.blockReason}`);
+        throw new Error(
+          `Blocked by Gemini Safety: ${data.promptFeedback.blockReason}`
+        );
       }
-      throw new Error("No response generated by Gemini (Safety or Filter issue)");
+      throw new Error(
+        "No response generated by Gemini (Safety or Filter issue)"
+      );
     }
 
     const textResult = candidate.content.parts?.[0]?.text;
@@ -137,17 +177,19 @@ Deno.serve(async (req: Request) => {
     const result = JSON.parse(textResult);
 
     return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: any) {
     console.error("Critical Error in chat-coach:", error.message);
-    return new Response(JSON.stringify({ 
+    return new Response(
+      JSON.stringify({
         error: error.message,
-        details: "Check Supabase project logs for full trace"
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+        details: "Check Supabase project logs for full trace",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
-})
-
+});

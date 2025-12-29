@@ -29,6 +29,7 @@ import {
   Search,
   List,
   KanbanSquare,
+  Clock,
 } from "lucide-react-native";
 import { TextInput } from "react-native";
 import CheckInModal from "./CheckInModal";
@@ -117,9 +118,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
     iconColor = theme.onError;
   } else if (task.status === TaskStatus.SKIPPED_WITH_BUFFER) {
     // Buffered State: Amber (Custom for now or derive from tertiary)
-    cardBg = "#FFF8E1"; // Stick to amber for semantic meaning
-    iconBg = "#FFC107";
-    iconColor = "#000000";
+    cardBg = theme.bufferContainer;
+    iconBg = theme.bufferBorder;
+    iconColor = theme.onBuffer;
   } else if (task.status === TaskStatus.PARTIAL) {
     cardBg = theme.secondaryContainer;
     iconBg = theme.secondary;
@@ -151,17 +152,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
       <View style={styles.cardHeader}>
         <View style={styles.cardLeft}>
           {/* ... existing IconBox/Checkbox ... */}
-           {/* Replace original IconBox block to inject Streak Badge logic if needed, 
+          {/* Replace original IconBox block to inject Streak Badge logic if needed, 
               but "CardLeft" contains the IconBox. 
               Let's inject the Streak Badge next to the Title or Subtitle.
            */}
-           {/* Actually, let's put it on the right side next to Settings or Priority? 
+          {/* Actually, let's put it on the right side next to Settings or Priority? 
                Or next to the title. 
            */}
-           
+
           {isOneOff ? (
-             // ... existing one-off ...
-             <TouchableOpacity
+            // ... existing one-off ...
+            <TouchableOpacity
               onPress={(e) => {
                 e.stopPropagation(); // Prevent opening modal
                 onToggleStatus(task);
@@ -175,7 +176,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               )}
             </TouchableOpacity>
           ) : (
-             <View
+            <View
               style={[
                 styles.iconBox,
                 {
@@ -193,34 +194,98 @@ const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           <View style={{ flex: 1 }}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-                 <Text
-                  style={[
-                    styles.cardTitle,
-                    task.status === TaskStatus.COMPLETED && styles.textLineThrough,
-                    {marginRight: 0} // Reset margin
-                  ]}
-                  numberOfLines={1}
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+            >
+              <Text
+                style={[
+                  styles.cardTitle,
+                  task.status === TaskStatus.COMPLETED &&
+                    styles.textLineThrough,
+                  { marginRight: 0 }, // Reset margin
+                ]}
+                numberOfLines={1}
+              >
+                {agenda.title}
+              </Text>
+              {streak && streak > 2 && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: "#FFC10720",
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 100,
+                  }}
                 >
-                  {agenda.title}
-                </Text>
-                {streak && streak > 2 && (
-                    <View style={{flexDirection:'row', alignItems:'center', backgroundColor: '#FFC10720', paddingHorizontal:6, paddingVertical:2, borderRadius:100}}>
-                         <Flame size={10} color="#FFC107" fill="#FFC107" />
-                         <Text style={{fontSize: 10, color: '#FF9800', fontWeight: 'bold', marginLeft: 2}}>{streak}</Text>
-                    </View>
-                )}
+                  <Flame size={10} color="#FFC107" fill="#FFC107" />
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      color: "#FF9800",
+                      fontWeight: "bold",
+                      marginLeft: 2,
+                    }}
+                  >
+                    {streak}
+                  </Text>
+                </View>
+              )}
             </View>
             <Text style={styles.cardSubtitle}>
+              {task.scheduledDate !== getLocalDateString() && (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <CalendarIcon
+                    size={10}
+                    color={theme.onSurfaceVariant}
+                    style={{ marginRight: 2 }}
+                  />
+                  <Text style={{ color: theme.secondary, fontWeight: "500" }}>
+                    {(() => {
+                      const d = new Date(task.scheduledDate + "T00:00:00");
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      if (task.scheduledDate === getLocalDateString(tomorrow))
+                        return "Tomorrow";
+                      return d.toLocaleDateString([], {
+                        month: "short",
+                        day: "numeric",
+                      });
+                    })()}
+                  </Text>
+                  <Text style={{ opacity: 0.8 }}> • </Text>
+                </View>
+              )}
+              {agenda.reminderTime && (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Clock
+                    size={10}
+                    color={theme.onSurfaceVariant}
+                    style={{ marginRight: 2 }}
+                  />
+                  <Text style={{ color: theme.primary, fontWeight: "500" }}>
+                    {new Date(agenda.reminderTime).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </Text>
+                  <Text style={{ opacity: 0.8 }}> • </Text>
+                </View>
+              )}
               {isNumeric
                 ? `${task.targetVal} ${agenda.unit || "units"}`
-                : "Daily"} 
-               {task.mood && <Text style={{ opacity: 0.8 }}> • {task.mood}</Text>}
+                : isOneOff
+                ? "Task"
+                : "Daily habit"}
+              {task.mood && (
+                <Text style={{ opacity: 0.8 }}> • {task.mood}</Text>
+              )}
             </Text>
 
             {/* Subtask Progress Mini Bar */}
             {isOneOff && task.subtasks && task.subtasks.length > 0 && (
-               <View
+              <View
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
@@ -264,7 +329,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </View>
 
         <View style={styles.cardRight}>
-        {/* ... */}
+          {/* ... */}
           {/* Priority Indicator */}
           {agenda.priority === "HIGH" && (
             <View
@@ -357,8 +422,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [viewMode, setViewMode] = useState<"LIST" | "BOARD">("LIST");
   const [boardPage, setBoardPage] = useState(0);
 
-
-
   /* ------------------ Filtering Logic ------------------ */
   const [searchText, setSearchText] = useState("");
   const [activeFilter, setActiveFilter] = useState<
@@ -450,18 +513,26 @@ const Dashboard: React.FC<DashboardProps> = ({
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-     if (viewMode === "LIST" && localTasks.length === 0 && agendas.length > 0) {
-         // Pulse
-         Animated.loop(
-             Animated.sequence([
-                 Animated.timing(scaleAnim, { toValue: 1.1, duration: 800, useNativeDriver: true }),
-                 Animated.timing(scaleAnim, { toValue: 1, duration: 800, useNativeDriver: true })
-             ])
-         ).start();
-     } else {
-         scaleAnim.stopAnimation();
-         scaleAnim.setValue(1);
-     }
+    if (viewMode === "LIST" && localTasks.length === 0 && agendas.length > 0) {
+      // Pulse
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scaleAnim, {
+            toValue: 1.1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      scaleAnim.stopAnimation();
+      scaleAnim.setValue(1);
+    }
   }, [viewMode, localTasks.length, agendas.length]);
 
   const handleTaskClick = (task: DailyTask) => {
@@ -494,7 +565,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     <View style={styles.container}>
       {/* Header & Controls */}
       <View style={styles.headerWrapper}>
-         {/* Row wrapper for filters + toggle */ }
+        {/* Row wrapper for filters + toggle */}
 
         <View style={styles.header}>
           <TouchableOpacity
@@ -530,38 +601,38 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Filters & Toggle Component */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={{ gap: 8, paddingBottom: 8 }}
-        >
-          {(
-            ["All", "Today", "Upcoming", "Overdue", "High Priority"] as const
-          ).map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[
-                styles.filterChip,
-                activeFilter === f && styles.filterChipActive,
-              ]}
-              onPress={() => {
-                setActiveFilter(f);
-                // If switching to Today/All, sync Date?
-                if (f === "Today") setSelectedDate(getLocalDateString());
-              }}
-            >
-              <Text
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={{ gap: 8, paddingBottom: 8 }}
+          >
+            {(
+              ["All", "Today", "Upcoming", "Overdue", "High Priority"] as const
+            ).map((f) => (
+              <TouchableOpacity
+                key={f}
                 style={[
-                  styles.filterText,
-                  activeFilter === f && styles.filterTextActive,
+                  styles.filterChip,
+                  activeFilter === f && styles.filterChipActive,
                 ]}
+                onPress={() => {
+                  setActiveFilter(f);
+                  // If switching to Today/All, sync Date?
+                  if (f === "Today") setSelectedDate(getLocalDateString());
+                }}
               >
-                {f}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <Text
+                  style={[
+                    styles.filterText,
+                    activeFilter === f && styles.filterTextActive,
+                  ]}
+                >
+                  {f}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
           <TouchableOpacity
             style={styles.viewToggleBtn}
             onPress={() => setViewMode(viewMode === "LIST" ? "BOARD" : "LIST")}
@@ -577,180 +648,260 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* List / Board Switch */}
       <View style={styles.listContainer}>
-        <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom: 8}}>
-            <Text style={styles.sectionTitle}>
-                {viewMode === "LIST" ? "Priorities" : "Kanban Board"}
-            </Text>
-            
-            {viewMode === "BOARD" && (
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  {[0, 1, 2].map(i => (
-                    <View key={i} style={{
-                      width: i === boardPage ? 16 : 8, 
-                      height: 8, 
-                      borderRadius: 4, 
-                      marginHorizontal: 3,
-                      backgroundColor: i === boardPage ? theme.primary : theme.surfaceVariant
-                    }} />
-                  ))}
-                </View>
-            )}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            paddingBottom: 8,
+          }}
+        >
+          <Text style={styles.sectionTitle}>
+            {viewMode === "LIST" ? "Priorities" : "Kanban Board"}
+          </Text>
+
+          {viewMode === "BOARD" && (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              {[0, 1, 2].map((i) => (
+                <View
+                  key={i}
+                  style={{
+                    width: i === boardPage ? 16 : 8,
+                    height: 8,
+                    borderRadius: 4,
+                    marginHorizontal: 3,
+                    backgroundColor:
+                      i === boardPage ? theme.primary : theme.surfaceVariant,
+                  }}
+                />
+              ))}
+            </View>
+          )}
         </View>
 
         {viewMode === "LIST" ? (
-        agendas.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Sparkles size={24} color={theme.onSurfaceVariant} />
-            </View>
-            <Text style={styles.emptyTitle}>Welcome!</Text>
-            <Text style={styles.emptyText}>
-              Create your first goal to start adapting.
-            </Text>
-            <TouchableOpacity onPress={onNewGoal} style={styles.createBtn}>
-              <Text style={styles.createBtnText}>+ Create Goal</Text>
-            </TouchableOpacity>
-          </View>
-        ) : localTasks.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No tasks for this day.</Text>
-            <TouchableOpacity
-              onPress={() => setSelectedDate(getLocalDateString())}
-            >
-              <Text style={{ color: theme.primary, marginTop: 10 }}>
-                Jump to Today
+          agendas.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Sparkles size={24} color={theme.onSurfaceVariant} />
+              </View>
+              <Text style={styles.emptyTitle}>Welcome!</Text>
+              <Text style={styles.emptyText}>
+                Create your first goal to start adapting.
               </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity onPress={onNewGoal} style={styles.createBtn}>
+                <Text style={styles.createBtnText}>+ Create Goal</Text>
+              </TouchableOpacity>
+            </View>
+          ) : localTasks.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No tasks for this day.</Text>
+              <TouchableOpacity
+                onPress={() => setSelectedDate(getLocalDateString())}
+              >
+                <Text style={{ color: theme.primary, marginTop: 10 }}>
+                  Jump to Today
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={localTasks}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: 100 }}
+              renderItem={({ item }) => {
+                const agenda = agendas.find((a) => a.id === item.agendaId);
+                if (!agenda) return null;
+                return (
+                  <View style={{ marginBottom: 10 }}>
+                    <TaskCard
+                      task={item}
+                      agenda={agenda}
+                      onClick={handleTaskClick}
+                      onSettingsClick={() => setSettingsAgenda(agenda)}
+                      onToggleStatus={handleQuickToggle}
+                    />
+                  </View>
+                );
+              }}
+            />
+          )
         ) : (
-          <FlatList
-            data={localTasks}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingBottom: 100 }}
-            renderItem={({ item }) => {
-              const agenda = agendas.find((a) => a.id === item.agendaId);
-              if (!agenda) return null;
-              return (
-                <View style={{ marginBottom: 10 }}>
-                  <TaskCard
-                    task={item}
-                    agenda={agenda}
-                    onClick={handleTaskClick}
-                    onSettingsClick={() => setSettingsAgenda(agenda)}
-                    onToggleStatus={handleQuickToggle}
-                  />
-                </View>
-              );
-            }}
-          />
-        )
-      ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.boardContainer}
-          decelerationRate="fast"
-          snapToInterval={Dimensions.get("window").width * 0.85 + 16}
-          onMomentumScrollEnd={(e) => {
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.boardContainer}
+            decelerationRate="fast"
+            snapToInterval={Dimensions.get("window").width * 0.85 + 16}
+            onMomentumScrollEnd={(e) => {
               const offsetX = e.nativeEvent.contentOffset.x;
               const width = Dimensions.get("window").width * 0.85 + 16;
               setBoardPage(Math.round(offsetX / width));
-          }}
-        >
-          {/* TO DO Column */}
-          <View style={styles.column}>
-            <View style={[styles.columnHeader, { backgroundColor: theme.surfaceContainerHighest }]}>
-               <Text style={styles.columnTitle}>To Do</Text>
-               <View style={[styles.countBadge, { backgroundColor: theme.surface }]}>
-                 <Text style={styles.countText}>
-                   {localTasks.filter((t) => t.status === TaskStatus.PENDING).length}
-                 </Text>
-               </View>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            }}
+          >
+            {/* TO DO Column */}
+            <View style={styles.column}>
+              <View
+                style={[
+                  styles.columnHeader,
+                  { backgroundColor: theme.surfaceContainerHighest },
+                ]}
+              >
+                <Text style={styles.columnTitle}>To Do</Text>
+                <View
+                  style={[
+                    styles.countBadge,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Text style={styles.countText}>
+                    {
+                      localTasks.filter((t) => t.status === TaskStatus.PENDING)
+                        .length
+                    }
+                  </Text>
+                </View>
+              </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
+              >
                 {localTasks
                   .filter((t) => t.status === TaskStatus.PENDING)
                   .map((item) => {
                     const agenda = agendas.find((a) => a.id === item.agendaId);
                     if (!agenda) return null;
                     return (
-                        <View key={item.id} style={{ marginBottom: 10 }}>
-                          <TaskCard
-                            task={item}
-                            agenda={agenda}
-                            onClick={handleTaskClick}
-                            onSettingsClick={() => setSettingsAgenda(agenda)}
-                            onToggleStatus={handleQuickToggle}
-                          />
-                        </View>
+                      <View key={item.id} style={{ marginBottom: 10 }}>
+                        <TaskCard
+                          task={item}
+                          agenda={agenda}
+                          onClick={handleTaskClick}
+                          onSettingsClick={() => setSettingsAgenda(agenda)}
+                          onToggleStatus={handleQuickToggle}
+                        />
+                      </View>
                     );
                   })}
-            </ScrollView>
-          </View>
-
-          {/* IN PROGRESS Column */}
-          <View style={styles.column}>
-             <View style={[styles.columnHeader, { backgroundColor: theme.secondaryContainer }]}>
-               <Text style={[styles.columnTitle, { color: theme.onSecondaryContainer }]}>In Progress</Text>
-               <View style={[styles.countBadge, { backgroundColor: theme.surface }]}>
-                 <Text style={styles.countText}>
-                   {localTasks.filter((t) => t.status === TaskStatus.PARTIAL || t.status === TaskStatus.SKIPPED_WITH_BUFFER).length}
-                 </Text>
-               </View>
+              </ScrollView>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+
+            {/* IN PROGRESS Column */}
+            <View style={styles.column}>
+              <View
+                style={[
+                  styles.columnHeader,
+                  { backgroundColor: theme.secondaryContainer },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.columnTitle,
+                    { color: theme.onSecondaryContainer },
+                  ]}
+                >
+                  In Progress
+                </Text>
+                <View
+                  style={[
+                    styles.countBadge,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Text style={styles.countText}>
+                    {
+                      localTasks.filter(
+                        (t) =>
+                          t.status === TaskStatus.PARTIAL ||
+                          t.status === TaskStatus.SKIPPED_WITH_BUFFER
+                      ).length
+                    }
+                  </Text>
+                </View>
+              </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
+              >
                 {localTasks
-                  .filter((t) => t.status === TaskStatus.PARTIAL || t.status === TaskStatus.SKIPPED_WITH_BUFFER)
+                  .filter(
+                    (t) =>
+                      t.status === TaskStatus.PARTIAL ||
+                      t.status === TaskStatus.SKIPPED_WITH_BUFFER
+                  )
                   .map((item) => {
                     const agenda = agendas.find((a) => a.id === item.agendaId);
                     if (!agenda) return null;
                     return (
-                        <View key={item.id} style={{ marginBottom: 10 }}>
-                          <TaskCard
-                            task={item}
-                            agenda={agenda}
-                            onClick={handleTaskClick}
-                            onSettingsClick={() => setSettingsAgenda(agenda)}
-                            onToggleStatus={handleQuickToggle}
-                          />
-                        </View>
+                      <View key={item.id} style={{ marginBottom: 10 }}>
+                        <TaskCard
+                          task={item}
+                          agenda={agenda}
+                          onClick={handleTaskClick}
+                          onSettingsClick={() => setSettingsAgenda(agenda)}
+                          onToggleStatus={handleQuickToggle}
+                        />
+                      </View>
                     );
                   })}
-            </ScrollView>
-          </View>
-
-          {/* DONE Column */}
-          <View style={styles.column}>
-             <View style={[styles.columnHeader, { backgroundColor: theme.surfaceContainerHigh }]}>
-               <Text style={styles.columnTitle}>Done</Text>
-               <View style={[styles.countBadge, { backgroundColor: theme.surface }]}>
-                 <Text style={styles.countText}>
-                   {localTasks.filter((t) => t.status === TaskStatus.COMPLETED || t.status === TaskStatus.FAILED).length}
-                 </Text>
-               </View>
+              </ScrollView>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+
+            {/* DONE Column */}
+            <View style={styles.column}>
+              <View
+                style={[
+                  styles.columnHeader,
+                  { backgroundColor: theme.surfaceContainerHigh },
+                ]}
+              >
+                <Text style={styles.columnTitle}>Done</Text>
+                <View
+                  style={[
+                    styles.countBadge,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Text style={styles.countText}>
+                    {
+                      localTasks.filter(
+                        (t) =>
+                          t.status === TaskStatus.COMPLETED ||
+                          t.status === TaskStatus.FAILED
+                      ).length
+                    }
+                  </Text>
+                </View>
+              </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
+              >
                 {localTasks
-                  .filter((t) => t.status === TaskStatus.COMPLETED || t.status === TaskStatus.FAILED)
+                  .filter(
+                    (t) =>
+                      t.status === TaskStatus.COMPLETED ||
+                      t.status === TaskStatus.FAILED
+                  )
                   .map((item) => {
                     const agenda = agendas.find((a) => a.id === item.agendaId);
                     if (!agenda) return null;
                     return (
-                        <View key={item.id} style={{ marginBottom: 10 }}>
-                          <TaskCard
-                            task={item}
-                            agenda={agenda}
-                            onClick={handleTaskClick}
-                            onSettingsClick={() => setSettingsAgenda(agenda)}
-                            onToggleStatus={handleQuickToggle}
-                          />
-                        </View>
+                      <View key={item.id} style={{ marginBottom: 10 }}>
+                        <TaskCard
+                          task={item}
+                          agenda={agenda}
+                          onClick={handleTaskClick}
+                          onSettingsClick={() => setSettingsAgenda(agenda)}
+                          onToggleStatus={handleQuickToggle}
+                        />
+                      </View>
                     );
                   })}
-            </ScrollView>
-          </View>
-        </ScrollView>
-      )}
+              </ScrollView>
+            </View>
+          </ScrollView>
+        )}
       </View>
 
       <CheckInModal
@@ -791,17 +942,22 @@ const Dashboard: React.FC<DashboardProps> = ({
         onCreateTask={onCreateTask}
       />
 
-      <Animated.View 
+      <Animated.View
         style={[
-            styles.fab, 
-            { 
-                elevation: 6, // explicitly set for Android
-                transform: [{ scale: scaleAnim }] 
-            }
+          styles.fab,
+          {
+            elevation: 6, // explicitly set for Android
+            transform: [{ scale: scaleAnim }],
+          },
         ]}
       >
         <TouchableOpacity
-          style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
+          style={{
+            width: "100%",
+            height: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
           onPress={() => setIsQuickAddOpen(true)}
         >
           <Plus size={32} color={theme.onPrimaryContainer} />

@@ -52,14 +52,20 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const styles = useMemo(() => getStyles(theme), [theme]);
-  
+
   // -- State --
-  const [filterMode, setFilterMode] = useState<"week" | "month" | "custom">("week");
-  const [customStart, setCustomStart] = useState<Date>(new Date(Date.now() - 7 * 86400000));
+  const [filterMode, setFilterMode] = useState<"week" | "month" | "custom">(
+    "week"
+  );
+  const [customStart, setCustomStart] = useState<Date>(
+    new Date(Date.now() - 7 * 86400000)
+  );
   const [customEnd, setCustomEnd] = useState<Date>(new Date());
-  
+
   // Date Picker State
-  const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(
+    null
+  );
 
   // Detail Modal State
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -86,7 +92,7 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
       const diffTime = Math.abs(end.getTime() - start.getTime());
       days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     }
-    
+
     return {
       startDateStr: getLocalDateString(start),
       endDateStr: getLocalDateString(end),
@@ -95,7 +101,7 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
   }, [filterMode, customStart, customEnd]);
 
   // -- Stats Calculations --
-  
+
   const rangeTasks = useMemo(
     () =>
       tasks.filter(
@@ -106,19 +112,23 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
       ),
     [tasks, startDateStr, endDateStr, agendas]
   );
-  
+
   // 1. Overall Consistency
   const consistencyStats = useMemo(() => {
-    const completedOrFailed = rangeTasks.filter((t) => t.status !== TaskStatus.PENDING);
+    const completedOrFailed = rangeTasks.filter(
+      (t) => t.status !== TaskStatus.PENDING
+    );
     if (completedOrFailed.length === 0) return { score: 0, delta: 0 };
 
     const success = completedOrFailed.filter(
-      (t) => t.status === TaskStatus.COMPLETED || t.status === TaskStatus.SKIPPED_WITH_BUFFER
+      (t) =>
+        t.status === TaskStatus.COMPLETED ||
+        t.status === TaskStatus.SKIPPED_WITH_BUFFER
     ).length;
-    
+
     const score = Math.round((success / completedOrFailed.length) * 100);
     const delta = getConsistencyDelta(tasks, agendas, daysInRange);
-    
+
     return { score, delta };
   }, [rangeTasks, tasks, agendas, daysInRange]);
 
@@ -126,48 +136,70 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
   const streakStats = useMemo(() => {
     let bestStreak = 0;
     let totalWins = 0;
-    
-    agendas.forEach(a => {
-        const { current, longest } = calculateStreak(tasks, a.id);
-        if (current > bestStreak) bestStreak = current;
+
+    agendas.forEach((a) => {
+      const { current, longest } = calculateStreak(tasks, a.id);
+      if (current > bestStreak) bestStreak = current;
     });
-    
+
     // Total historical wins (not just range)
-    totalWins = tasks.filter(t => t.status === TaskStatus.COMPLETED).length;
-    
+    totalWins = tasks.filter((t) => t.status === TaskStatus.COMPLETED).length;
+
     return { bestStreak, totalWins };
   }, [tasks, agendas]);
 
   // 3. Habit Performance List
   const habitPerformance = useMemo(() => {
-    return agendas.map(agenda => {
-        const agendaTasks = rangeTasks.filter(t => t.agendaId === agenda.id && t.status !== TaskStatus.PENDING);
-        const success = agendaTasks.filter(t => t.status === TaskStatus.COMPLETED || t.status === TaskStatus.SKIPPED_WITH_BUFFER).length;
+    return agendas
+      .map((agenda) => {
+        const agendaTasks = rangeTasks.filter(
+          (t) => t.agendaId === agenda.id && t.status !== TaskStatus.PENDING
+        );
+        const success = agendaTasks.filter(
+          (t) =>
+            t.status === TaskStatus.COMPLETED ||
+            t.status === TaskStatus.SKIPPED_WITH_BUFFER
+        ).length;
         const total = agendaTasks.length;
         const score = total > 0 ? Math.round((success / total) * 100) : 0;
-        
+
         // For numeric goals, calculate average % of target achieved
         let numericProgress = 0;
         if (agenda.type === AgendaType.NUMERIC) {
-             const numericTasks = rangeTasks.filter(t => t.agendaId === agenda.id && t.status !== TaskStatus.PENDING);
-             if (numericTasks.length > 0) {
-                 const totalActual = numericTasks.reduce((sum, t) => sum + t.actualVal, 0);
-                 const totalTarget = numericTasks.reduce((sum, t) => sum + t.targetVal, 0);
-                 numericProgress = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
-             }
+          const numericTasks = rangeTasks.filter(
+            (t) => t.agendaId === agenda.id && t.status !== TaskStatus.PENDING
+          );
+          if (numericTasks.length > 0) {
+            const totalActual = numericTasks.reduce(
+              (sum, t) => sum + t.actualVal,
+              0
+            );
+            const totalTarget = numericTasks.reduce(
+              (sum, t) => sum + t.targetVal,
+              0
+            );
+            numericProgress =
+              totalTarget > 0
+                ? Math.round((totalActual / totalTarget) * 100)
+                : 0;
+          }
         }
-        
+
         return {
-            ...agenda,
-            score,
-            numericProgress,
-            count: total
+          ...agenda,
+          score,
+          numericProgress,
+          count: total,
         };
-    }).sort((a, b) => b.score - a.score);
+      })
+      .sort((a, b) => b.score - a.score);
   }, [rangeTasks, agendas]);
 
   // 4. Correlations
-  const correlations = useMemo(() => getCorrelations(tasks, agendas), [tasks, agendas]);
+  const correlations = useMemo(
+    () => getCorrelations(tasks, agendas),
+    [tasks, agendas]
+  );
 
   // -- Effects --
   useEffect(() => {
@@ -180,7 +212,7 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
         );
         if (error) throw error;
         if (data && data.length > 0) {
-          const top = data[0]; 
+          const top = data[0];
           setInsightText(
             `You tend to report '${top.failure_tag}' most often on ${top.day_label}s.`
           );
@@ -200,14 +232,18 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
 
   const getDayDetails = () => {
     if (!selectedDate) return [];
-    return tasks.filter(t => t.scheduledDate === selectedDate && agendas.some(a => a.id === t.agendaId));
+    return tasks.filter(
+      (t) =>
+        t.scheduledDate === selectedDate &&
+        agendas.some((a) => a.id === t.agendaId)
+    );
   };
-  
+
   const handleDateChange = (event: any, date?: Date) => {
-    if (Platform.OS === 'android') setShowDatePicker(null);
+    if (Platform.OS === "android") setShowDatePicker(null);
     if (date && showDatePicker) {
-        if (showDatePicker === 'start') setCustomStart(date);
-        else setCustomEnd(date);
+      if (showDatePicker === "start") setCustomStart(date);
+      else setCustomEnd(date);
     }
   };
 
@@ -217,13 +253,24 @@ const ReportView: React.FC<ReportViewProps> = ({ tasks, agendas }) => {
 📊 Insights Report (${startDateStr} - ${endDateStr})
 
 Consistency: ${consistencyStats.score}%
-${consistencyStats.delta !== 0 ? `Trajectory: ${consistencyStats.delta > 0 ? 'Up' : 'Down'} ${Math.abs(consistencyStats.delta)}%` : ''}
+${
+  consistencyStats.delta !== 0
+    ? `Trajectory: ${consistencyStats.delta > 0 ? "Up" : "Down"} ${Math.abs(
+        consistencyStats.delta
+      )}%`
+    : ""
+}
 
 🔥 Best Streak: ${streakStats.bestStreak} days
 🏆 Total Wins: ${streakStats.totalWins}
 
 Habits:
-${habitPerformance.map(h => `- ${h.title}: ${h.type === 'NUMERIC' ? h.numericProgress : h.score}%`).join('\n')}
+${habitPerformance
+  .map(
+    (h) =>
+      `- ${h.title}: ${h.type === "NUMERIC" ? h.numericProgress : h.score}%`
+  )
+  .join("\n")}
 
 Generated by GoalCoach.
       `.trim();
@@ -247,236 +294,335 @@ Generated by GoalCoach.
           <Text style={styles.title}>Insights</Text>
           <Text style={styles.subtitle}>Your progress & patterns.</Text>
         </View>
-        <View style={{flexDirection:'row', gap: 12}}>
-            <TouchableOpacity onPress={handleShare}>
-                <Share2 size={24} color={theme.primary} />
-            </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <TouchableOpacity onPress={handleShare}>
+            <Share2 size={24} color={theme.primary} />
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* Date Filter */}
       <View style={styles.filterSection}>
-          <View style={styles.filterTabs}>
-            {(["week", "month", "custom"] as const).map(m => (
-                <TouchableOpacity 
-                    key={m} 
-                    style={[styles.filterTab, filterMode === m && styles.filterTabActive]}
-                    onPress={() => setFilterMode(m)}
-                >
-                    <Text style={[styles.filterTabText, filterMode === m && styles.filterTabTextActive]}>
-                        {m === 'week' ? '7 Days' : m === 'month' ? '30 Days' : 'Custom'}
-                    </Text>
-                </TouchableOpacity>
-            ))}
+        <View style={styles.filterTabs}>
+          {(["week", "month", "custom"] as const).map((m) => (
+            <TouchableOpacity
+              key={m}
+              style={[
+                styles.filterTab,
+                filterMode === m && styles.filterTabActive,
+              ]}
+              onPress={() => setFilterMode(m)}
+            >
+              <Text
+                style={[
+                  styles.filterTabText,
+                  filterMode === m && styles.filterTabTextActive,
+                ]}
+              >
+                {m === "week" ? "7 Days" : m === "month" ? "30 Days" : "Custom"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {filterMode === "custom" && (
+          <View style={styles.dateRangeRow}>
+            <TouchableOpacity
+              style={styles.dateBtn}
+              onPress={() => setShowDatePicker("start")}
+            >
+              <Text style={styles.dateBtnText}>
+                {getLocalDateString(customStart)}
+              </Text>
+            </TouchableOpacity>
+            <Text style={{ color: theme.onSurfaceVariant }}>-</Text>
+            <TouchableOpacity
+              style={styles.dateBtn}
+              onPress={() => setShowDatePicker("end")}
+            >
+              <Text style={styles.dateBtnText}>
+                {getLocalDateString(customEnd)}
+              </Text>
+            </TouchableOpacity>
           </View>
-          
-          {filterMode === 'custom' && (
-              <View style={styles.dateRangeRow}>
-                  <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker('start')}>
-                      <Text style={styles.dateBtnText}>{getLocalDateString(customStart)}</Text>
-                  </TouchableOpacity>
-                  <Text style={{color: theme.onSurfaceVariant}}>-</Text>
-                  <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker('end')}>
-                       <Text style={styles.dateBtnText}>{getLocalDateString(customEnd)}</Text>
-                  </TouchableOpacity>
-              </View>
-          )}
+        )}
       </View>
 
       {/* Stats Cards Row */}
       <View style={styles.statsRow}>
-          {/* Consistency Card */}
-          <View style={[styles.statCard, { flex: 1.2 }]}>
-              <View style={styles.statHeader}>
-                  <Text style={styles.statLabel}>Consistency</Text>
-                  <TrendingUp size={16} color={theme.primary} />
-              </View>
-              <View style={styles.statMain}>
-                  <Text style={styles.statValue}>{consistencyStats.score}%</Text>
-                  
-                  {consistencyStats.delta !== 0 && (
-                      <View style={[styles.deltaBadge, { backgroundColor: consistencyStats.delta > 0 ? theme.primaryContainer : theme.errorContainer }]}>
-                          {consistencyStats.delta > 0 ? <ArrowUp size={12} color={theme.onPrimaryContainer} /> : <ArrowDown size={12} color={theme.onErrorContainer} />}
-                          <Text style={[styles.deltaText, { color: consistencyStats.delta > 0 ? theme.onPrimaryContainer : theme.onErrorContainer }]}>
-                            {Math.abs(consistencyStats.delta)}%
-                          </Text>
-                      </View>
-                  )}
-              </View>
-              <Text style={styles.statSub}>vs previous {daysInRange} days</Text>
+        {/* Consistency Card */}
+        <View style={[styles.statCard, { flex: 1.2 }]}>
+          <View style={styles.statHeader}>
+            <Text style={styles.statLabel}>Consistency</Text>
+            <TrendingUp size={16} color={theme.primary} />
           </View>
+          <View style={styles.statMain}>
+            <Text style={styles.statValue}>{consistencyStats.score}%</Text>
 
-          {/* Streaks Card */}
-          <View style={[styles.statCard, { flex: 0.8 }]}>
-               <View style={styles.statHeader}>
-                  <Text style={styles.statLabel}>Best Streak</Text>
-                  <Zap size={16} color="#FFC107" />
+            {consistencyStats.delta !== 0 && (
+              <View
+                style={[
+                  styles.deltaBadge,
+                  {
+                    backgroundColor:
+                      consistencyStats.delta > 0
+                        ? theme.primaryContainer
+                        : theme.errorContainer,
+                  },
+                ]}
+              >
+                {consistencyStats.delta > 0 ? (
+                  <ArrowUp size={12} color={theme.onPrimaryContainer} />
+                ) : (
+                  <ArrowDown size={12} color={theme.onErrorContainer} />
+                )}
+                <Text
+                  style={[
+                    styles.deltaText,
+                    {
+                      color:
+                        consistencyStats.delta > 0
+                          ? theme.onPrimaryContainer
+                          : theme.onErrorContainer,
+                    },
+                  ]}
+                >
+                  {Math.abs(consistencyStats.delta)}%
+                </Text>
               </View>
-               <Text style={styles.statValue}>{streakStats.bestStreak} <Text style={{fontSize: 16, fontWeight:'400'}}>days</Text></Text>
-               <Text style={styles.statSub}>{streakStats.totalWins} total wins</Text>
+            )}
           </View>
+          <Text style={styles.statSub}>vs previous {daysInRange} days</Text>
+        </View>
+
+        {/* Streaks Card */}
+        <View style={[styles.statCard, { flex: 0.8 }]}>
+          <View style={styles.statHeader}>
+            <Text style={styles.statLabel}>Best Streak</Text>
+            <Zap size={16} color="#FFC107" />
+          </View>
+          <Text style={styles.statValue}>
+            {streakStats.bestStreak}{" "}
+            <Text style={{ fontSize: 16, fontWeight: "400" }}>days</Text>
+          </Text>
+          <Text style={styles.statSub}>{streakStats.totalWins} total wins</Text>
+        </View>
       </View>
-      
+
       {/* Coach / Insights Section */}
       {(insightText || correlations.length > 0) && (
-          <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Coach Insights</Text>
-              
-              {insightText && (
-                  <View style={styles.insightBox}>
-                      <AlertTriangle size={20} color={theme.tertiary} />
-                      <Text style={styles.insightText}>{insightText}</Text>
-                  </View>
-              )}
-              
-              {correlations.map((c, i) => (
-                   <View key={i} style={styles.insightBox}>
-                      <TrendingUp size={20} color={theme.secondary} />
-                      <Text style={styles.insightText}>{c}</Text>
-                  </View>
-              ))}
-          </View>
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Coach Insights</Text>
+
+          {insightText && (
+            <View style={styles.insightBox}>
+              <AlertTriangle size={20} color={theme.tertiary} />
+              <Text style={styles.insightText}>{insightText}</Text>
+            </View>
+          )}
+
+          {correlations.map((c, i) => (
+            <View key={i} style={styles.insightBox}>
+              <TrendingUp size={20} color={theme.secondary} />
+              <Text style={styles.insightText}>{c}</Text>
+            </View>
+          ))}
+        </View>
       )}
 
       {/* Habit Performance (Categories/Breakdown replacement) */}
       <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Performance by Habit</Text>
-          {habitPerformance.length === 0 ? (
-              <Text style={styles.emptyText}>No data for this period.</Text>
-          ) : (
-             habitPerformance.map(h => {
-                 const isNum = h.type === AgendaType.NUMERIC;
-                 // Use numeric progress for numeric goals, consistency score for habits
-                 const displayPercent = isNum ? h.numericProgress : h.score; 
-                 const barColor = displayPercent >= 80 ? theme.primary : displayPercent >= 50 ? theme.secondary : theme.error;
-                 
-                 return (
-                     <View key={h.id} style={styles.habitRow}>
-                         <View style={{flex: 1}}>
-                             <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom: 6}}>
-                                 <Text style={styles.habitTitle}>{h.title}</Text>
-                                 <Text style={styles.habitPercent}>{displayPercent}%</Text>
-                             </View>
-                             
-                             <View style={styles.progressBarBg}>
-                                 <View style={[styles.progressBarFill, { width: `${Math.min(displayPercent, 100)}%`, backgroundColor: barColor }]} />
-                             </View>
-                             
-                             {isNum && (
-                                 <Text style={styles.habitMeta}>Target completion rate</Text>
-                             )}
-                         </View>
-                     </View>
-                 )
-             })
-          )}
+        <Text style={styles.sectionTitle}>Performance by Habit</Text>
+        {habitPerformance.length === 0 ? (
+          <Text style={styles.emptyText}>No data for this period.</Text>
+        ) : (
+          habitPerformance.map((h) => {
+            const isNum = h.type === AgendaType.NUMERIC;
+            // Use numeric progress for numeric goals, consistency score for habits
+            const displayPercent = isNum ? h.numericProgress : h.score;
+            const barColor =
+              displayPercent >= 80
+                ? theme.primary
+                : displayPercent >= 50
+                ? theme.secondary
+                : theme.error;
+
+            return (
+              <View key={h.id} style={styles.habitRow}>
+                <View style={{ flex: 1 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <Text style={styles.habitTitle}>{h.title}</Text>
+                    <Text style={styles.habitPercent}>{displayPercent}%</Text>
+                  </View>
+
+                  <View style={styles.progressBarBg}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        {
+                          width: `${Math.min(displayPercent, 100)}%`,
+                          backgroundColor: barColor,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  {isNum && (
+                    <Text style={styles.habitMeta}>Target completion rate</Text>
+                  )}
+                </View>
+              </View>
+            );
+          })
+        )}
       </View>
-      
-       <View style={styles.sectionContainer}>
-           <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'baseline', marginBottom: 12}}>
-               <Text style={styles.sectionTitle}>History Log</Text>
-               <Text style={{fontSize: 12, color: theme.onSurfaceVariant, fontStyle:'italic'}}>Tap a day to details</Text>
-           </View>
-           <View style={styles.calendarContainer}>
-               <Calendar
-                  current={getLocalDateString(new Date())}
-                  onDayPress={onDayPress}
-                  markingType="multi-dot"
-                  markedDates={(() => {
-                      const marks: any = {};
-                      rangeTasks.forEach(t => {
-                          if (!marks[t.scheduledDate]) marks[t.scheduledDate] = {dots: []};
-                          
-                          let color = theme.surfaceVariant;
-                          if (t.status === TaskStatus.COMPLETED) color = theme.primary;
-                          else if (t.status === TaskStatus.FAILED) color = theme.error;
-                          else if (t.status === TaskStatus.SKIPPED_WITH_BUFFER) color = '#FFC107';
-                          
-                          if (t.status !== TaskStatus.PENDING) {
-                              marks[t.scheduledDate].dots.push({ key: t.id, color: color });
-                          }
-                      });
-                      
-                      // Also mark selected day
-                      if (selectedDate) {
-                          marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: theme.primaryContainer };
-                      }
-                      
-                      return marks;
-                  })()}
-                  theme={{
-                    backgroundColor: 'transparent',
-                    calendarBackground: 'transparent',
-                    textSectionTitleColor: theme.onSurfaceVariant,
-                    dayTextColor: theme.onSurface,
-                    todayTextColor: theme.primary,
-                    arrowColor: theme.primary,
-                    monthTextColor: theme.onSurface,
-                  }}
-               />
-           </View>
+
+      <View style={styles.sectionContainer}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            marginBottom: 12,
+          }}
+        >
+          <Text style={styles.sectionTitle}>History Log</Text>
+          <Text
+            style={{
+              fontSize: 12,
+              color: theme.onSurfaceVariant,
+              fontStyle: "italic",
+            }}
+          >
+            Tap a day to details
+          </Text>
+        </View>
+        <View style={styles.calendarContainer}>
+          <Calendar
+            current={getLocalDateString(new Date())}
+            onDayPress={onDayPress}
+            markingType="multi-dot"
+            markedDates={(() => {
+              const marks: any = {};
+              rangeTasks.forEach((t) => {
+                if (!marks[t.scheduledDate])
+                  marks[t.scheduledDate] = { dots: [] };
+
+                let color = theme.surfaceVariant;
+                if (t.status === TaskStatus.COMPLETED) color = theme.primary;
+                else if (t.status === TaskStatus.FAILED) color = theme.error;
+                else if (t.status === TaskStatus.SKIPPED_WITH_BUFFER)
+                  color = theme.bufferBorder;
+
+                if (t.status !== TaskStatus.PENDING) {
+                  marks[t.scheduledDate].dots.push({ key: t.id, color: color });
+                }
+              });
+
+              // Also mark selected day
+              if (selectedDate) {
+                marks[selectedDate] = {
+                  ...marks[selectedDate],
+                  selected: true,
+                  selectedColor: theme.primaryContainer,
+                };
+              }
+
+              return marks;
+            })()}
+            theme={{
+              backgroundColor: "transparent",
+              calendarBackground: "transparent",
+              textSectionTitleColor: theme.onSurfaceVariant,
+              dayTextColor: theme.onSurface,
+              todayTextColor: theme.primary,
+              arrowColor: theme.primary,
+              monthTextColor: theme.onSurface,
+            }}
+          />
+        </View>
       </View>
 
       {/* Detail Modal */}
       <Modal
-          animationType="slide"
-          transparent={true}
-          visible={modalVisible}
-          onRequestClose={() => setModalVisible(false)}
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>
-                        {selectedDate ? new Date(selectedDate).toDateString() : ''}
-                    </Text>
-                    <TouchableOpacity onPress={() => setModalVisible(false)}>
-                        <X size={24} color={theme.onSurface} />
-                    </TouchableOpacity>
-                </View>
-                
-                <ScrollView contentContainerStyle={{paddingBottom: 20}}>
-                    {getDayDetails().length === 0 ? (
-                        <Text style={styles.emptyText}>No activity recorded.</Text>
-                    ) : (
-                        getDayDetails().map(t => (
-                            <View key={t.id} style={styles.detailRow}>
-                                <View style={[styles.statusDot, { 
-                                    backgroundColor: 
-                                        t.status === TaskStatus.COMPLETED ? theme.primary : 
-                                        t.status === TaskStatus.FAILED ? theme.error : theme.surfaceVariant 
-                                }]} />
-                                <View style={{flex: 1}}>
-                                    <Text style={styles.detailTitle}>
-                                        {agendas.find(a => a.id === t.agendaId)?.title || 'Unknown Task'}
-                                    </Text>
-                                    {t.note ? (
-                                        <Text style={styles.detailNote}>Note: {t.note}</Text>
-                                    ) : null}
-                                    {t.actualVal > 0 && agendas.find(a => a.id === t.agendaId)?.type === AgendaType.NUMERIC && (
-                                        <Text style={styles.detailMeta}>Recorded: {t.actualVal}</Text>
-                                    )}
-                                </View>
-                                {t.status === TaskStatus.COMPLETED && <Check size={16} color={theme.primary} />}
-                            </View>
-                        ))
-                    )}
-                </ScrollView>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {selectedDate ? new Date(selectedDate).toDateString() : ""}
+              </Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <X size={24} color={theme.onSurface} />
+              </TouchableOpacity>
             </View>
+
+            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+              {getDayDetails().length === 0 ? (
+                <Text style={styles.emptyText}>No activity recorded.</Text>
+              ) : (
+                getDayDetails().map((t) => (
+                  <View key={t.id} style={styles.detailRow}>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        {
+                          backgroundColor:
+                            t.status === TaskStatus.COMPLETED
+                              ? theme.primary
+                              : t.status === TaskStatus.FAILED
+                              ? theme.error
+                              : theme.surfaceVariant,
+                        },
+                      ]}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.detailTitle}>
+                        {agendas.find((a) => a.id === t.agendaId)?.title ||
+                          "Unknown Task"}
+                      </Text>
+                      {t.note ? (
+                        <Text style={styles.detailNote}>Note: {t.note}</Text>
+                      ) : null}
+                      {t.actualVal > 0 &&
+                        agendas.find((a) => a.id === t.agendaId)?.type ===
+                          AgendaType.NUMERIC && (
+                          <Text style={styles.detailMeta}>
+                            Recorded: {t.actualVal}
+                          </Text>
+                        )}
+                    </View>
+                    {t.status === TaskStatus.COMPLETED && (
+                      <Check size={16} color={theme.primary} />
+                    )}
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
         </View>
       </Modal>
-      
+
       {/* DateTimePicker handling */}
       {showDatePicker && (
         <DateTimePicker
-            value={showDatePicker === 'start' ? customStart : customEnd}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-            maximumDate={new Date()}
+          value={showDatePicker === "start" ? customStart : customEnd}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+          maximumDate={new Date()}
         />
       )}
-      
     </ScrollView>
   );
 };
@@ -489,230 +635,230 @@ const getStyles = (theme: ThemeType) =>
       padding: 16,
     },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 24,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 24,
     },
     title: {
-        fontSize: 32,
-        color: theme.onSurface,
-        fontWeight: 'bold',
+      fontSize: 32,
+      color: theme.onSurface,
+      fontWeight: "bold",
     },
     subtitle: {
-        fontSize: 14,
-        color: theme.onSurfaceVariant,
+      fontSize: 14,
+      color: theme.onSurfaceVariant,
     },
     filterSection: {
-        marginBottom: 24,
+      marginBottom: 24,
     },
     filterTabs: {
-        flexDirection: 'row',
-        backgroundColor: theme.surfaceContainer,
-        borderRadius: 12,
-        padding: 4,
-        marginBottom: 12,
+      flexDirection: "row",
+      backgroundColor: theme.surfaceContainer,
+      borderRadius: 12,
+      padding: 4,
+      marginBottom: 12,
     },
     filterTab: {
-        flex: 1,
-        paddingVertical: 8,
-        alignItems: 'center',
-        borderRadius: 8,
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: "center",
+      borderRadius: 8,
     },
     filterTabActive: {
-        backgroundColor: theme.primaryContainer,
+      backgroundColor: theme.primaryContainer,
     },
     filterTabText: {
-        fontSize: 14,
-        color: theme.onSurfaceVariant,
-        fontWeight: '500',
+      fontSize: 14,
+      color: theme.onSurfaceVariant,
+      fontWeight: "500",
     },
     filterTabTextActive: {
-        color: theme.onPrimaryContainer,
-        fontWeight: 'bold',
+      color: theme.onPrimaryContainer,
+      fontWeight: "bold",
     },
     dateRangeRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 12,
     },
     dateBtn: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        backgroundColor: theme.surfaceContainerHigh,
-        borderRadius: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: theme.surfaceContainerHigh,
+      borderRadius: 8,
     },
     dateBtnText: {
-        color: theme.onSurface,
-        fontSize: 14,
+      color: theme.onSurface,
+      fontSize: 14,
     },
     statsRow: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 24,
+      flexDirection: "row",
+      gap: 12,
+      marginBottom: 24,
     },
     statCard: {
-        backgroundColor: theme.surfaceContainer,
-        borderRadius: 16,
-        padding: 16,
+      backgroundColor: theme.surfaceContainer,
+      borderRadius: 16,
+      padding: 16,
     },
     statHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
     },
     statLabel: {
-        fontSize: 12,
-        color: theme.onSurfaceVariant,
-        fontWeight: '600',
+      fontSize: 12,
+      color: theme.onSurfaceVariant,
+      fontWeight: "600",
     },
     statMain: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        gap: 8,
-        marginBottom: 4,
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 8,
+      marginBottom: 4,
     },
     statValue: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        color: theme.onSurface,
+      fontSize: 32,
+      fontWeight: "bold",
+      color: theme.onSurface,
     },
     statSub: {
-        fontSize: 11,
-        color: theme.onSurfaceVariant,
+      fontSize: 11,
+      color: theme.onSurfaceVariant,
     },
     deltaBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 100,
-        gap: 2,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 100,
+      gap: 2,
     },
     deltaText: {
-        fontSize: 11,
-        fontWeight: 'bold',
+      fontSize: 11,
+      fontWeight: "bold",
     },
     sectionContainer: {
-        marginBottom: 24,
+      marginBottom: 24,
     },
     sectionTitle: {
-        fontSize: 18,
-        color: theme.onSurface,
-        fontWeight: 'bold',
-        marginBottom: 16,
+      fontSize: 18,
+      color: theme.onSurface,
+      fontWeight: "bold",
+      marginBottom: 16,
     },
     habitRow: {
-        marginBottom: 16,
-        backgroundColor: theme.surfaceContainerLow,
-        padding: 12,
-        borderRadius: 12,
+      marginBottom: 16,
+      backgroundColor: theme.surfaceContainerLow,
+      padding: 12,
+      borderRadius: 12,
     },
     habitTitle: {
-        fontSize: 14,
-        color: theme.onSurface,
-        fontWeight: '600',
+      fontSize: 14,
+      color: theme.onSurface,
+      fontWeight: "600",
     },
     habitPercent: {
-        fontSize: 14,
-        color: theme.onSurface,
-        fontWeight: 'bold',
+      fontSize: 14,
+      color: theme.onSurface,
+      fontWeight: "bold",
     },
     habitMeta: {
-        fontSize: 10,
-        color: theme.onSurfaceVariant,
-        marginTop: 4,
+      fontSize: 10,
+      color: theme.onSurfaceVariant,
+      marginTop: 4,
     },
     progressBarBg: {
-        height: 6,
-        backgroundColor: theme.outline + '20',
-        borderRadius: 100,
-        width: '100%',
+      height: 6,
+      backgroundColor: theme.outline + "20",
+      borderRadius: 100,
+      width: "100%",
     },
     progressBarFill: {
-        height: '100%',
-        borderRadius: 100,
+      height: "100%",
+      borderRadius: 100,
     },
     calendarContainer: {
-        backgroundColor: theme.surfaceContainerLow,
-        borderRadius: 16,
-        padding: 8,
+      backgroundColor: theme.surfaceContainerLow,
+      borderRadius: 16,
+      padding: 8,
     },
     emptyText: {
-        fontStyle: 'italic',
-        color: theme.onSurfaceVariant,
+      fontStyle: "italic",
+      color: theme.onSurfaceVariant,
     },
     insightBox: {
-        flexDirection: 'row',
-        gap: 12,
-        backgroundColor: theme.tertiaryContainer + '40', // transparent tertiary
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 8,
-        alignItems: 'center',
+      flexDirection: "row",
+      gap: 12,
+      backgroundColor: theme.tertiaryContainer + "40", // transparent tertiary
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 8,
+      alignItems: "center",
     },
     insightText: {
-        flex: 1,
-        fontSize: 13,
-        color: theme.onSurface,
-        lineHeight: 20,
+      flex: 1,
+      fontSize: 13,
+      color: theme.onSurface,
+      lineHeight: 20,
     },
     modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "flex-end",
     },
     modalContent: {
-        backgroundColor: theme.surface,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 24,
-        height: '60%',
+      backgroundColor: theme.surface,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 24,
+      height: "60%",
     },
     modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 24,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 24,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: theme.onSurface,
+      fontSize: 20,
+      fontWeight: "bold",
+      color: theme.onSurface,
     },
     detailRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 12,
-        marginBottom: 16,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.outline + '20',
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      marginBottom: 16,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.outline + "20",
     },
     statusDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        marginTop: 4,
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      marginTop: 4,
     },
     detailTitle: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: theme.onSurface,
+      fontSize: 16,
+      fontWeight: "500",
+      color: theme.onSurface,
     },
     detailNote: {
-        fontSize: 14,
-        color: theme.onSurfaceVariant,
-        fontStyle: 'italic',
-        marginTop: 4,
+      fontSize: 14,
+      color: theme.onSurfaceVariant,
+      fontStyle: "italic",
+      marginTop: 4,
     },
     detailMeta: {
-        fontSize: 12,
-        color: theme.primary,
-        marginTop: 4,
-        fontWeight: '500',
+      fontSize: 12,
+      color: theme.primary,
+      marginTop: 4,
+      fontWeight: "500",
     },
   });
 

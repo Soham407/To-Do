@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   input: {
     height: 56,
     borderWidth: 1,
-    borderRadius: 4,
+    borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
     fontFamily: Fonts.regular,

@@ -27,10 +27,8 @@ const Layout: React.FC<LayoutProps> = ({
   const styles = React.useMemo(() => getStyles(theme), [theme]);
 
   // Icon color logic:
-  // Active: Icon is PrimaryContainer (on Dark BG)
-  // Inactive: Icon is OnPrimaryContainer (on Light BG)
   const getIconColor = (isActive: boolean) =>
-    isActive ? theme.primaryContainer : theme.onPrimaryContainer;
+    isActive ? theme.onSecondaryContainer : theme.onSurfaceVariant;
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
@@ -42,46 +40,39 @@ const Layout: React.FC<LayoutProps> = ({
             {/* Dashboard Tab */}
             <TouchableOpacity
               onPress={() => onTabChange("dashboard")}
-              style={[
-                styles.navButton,
-                activeTab === "dashboard" && styles.navButtonActive,
-              ]}
+              style={styles.navButton}
             >
+              {activeTab === "dashboard" && <View style={styles.activePill} />}
               <LayoutDashboard
                 size={24}
                 color={getIconColor(activeTab === "dashboard")}
-                strokeWidth={2.5}
+                strokeWidth={activeTab === "dashboard" ? 2.5 : 2}
               />
             </TouchableOpacity>
 
             {/* Add Goal (Center) */}
             <TouchableOpacity
               onPress={() => onTabChange("onboarding")}
-              style={[
-                styles.navButton,
-                styles.fabButton,
-                activeTab === "onboarding" && styles.navButtonActive,
-              ]}
+              style={styles.navButton}
             >
+              {activeTab === "onboarding" && <View style={styles.activePill} />}
               <Target
-                size={28}
+                size={24}
                 color={getIconColor(activeTab === "onboarding")}
-                strokeWidth={activeTab === "onboarding" ? 3 : 2.5}
+                strokeWidth={activeTab === "onboarding" ? 2.5 : 2}
               />
             </TouchableOpacity>
 
             {/* Insights Tab */}
             <TouchableOpacity
               onPress={() => onTabChange("report")}
-              style={[
-                styles.navButton,
-                activeTab === "report" && styles.navButtonActive,
-              ]}
+              style={styles.navButton}
             >
+              {activeTab === "report" && <View style={styles.activePill} />}
               <PieChart
                 size={24}
                 color={getIconColor(activeTab === "report")}
-                strokeWidth={2.5}
+                strokeWidth={activeTab === "report" ? 2.5 : 2}
               />
             </TouchableOpacity>
           </View>
@@ -95,14 +86,14 @@ const getStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.surfaceContainerLow,
+      backgroundColor: theme.background,
     },
     content: {
       flex: 1,
     },
     navContainer: {
       position: "absolute",
-      bottom: 30,
+      bottom: 24,
       left: 0,
       right: 0,
       alignItems: "center",
@@ -112,35 +103,30 @@ const getStyles = (theme: any) =>
     navBar: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-evenly",
-      backgroundColor: theme.primaryContainer,
-      width: "85%",
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-      borderRadius: 50,
+      justifyContent: "space-around",
+      backgroundColor: theme.surfaceContainerHigh,
+      width: "80%",
+      paddingVertical: 12,
+      borderRadius: 100,
       shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.3,
-      shadowRadius: 4.65,
-      elevation: 8,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 10,
+      elevation: 6,
     },
     navButton: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
       alignItems: "center",
       justifyContent: "center",
+      width: 64,
+      height: 48,
     },
-    fabButton: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-    },
-    navButtonActive: {
-      backgroundColor: theme.onPrimaryContainer,
+    activePill: {
+      position: "absolute",
+      width: 64,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: theme.secondaryContainer,
+      zIndex: -1,
     },
   });
 
