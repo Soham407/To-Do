@@ -1,45 +1,34 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   FlatList,
   Dimensions,
-  Animated, // Add Animated
+  Animated,
+  TextInput,
 } from "react-native";
-import { useRef } from "react"; // Add useRef
-import { Agenda, DailyTask, TaskStatus, AgendaType } from "../types";
 import {
-  Check,
-  Circle,
-  AlertCircle,
-  Shield,
-  ArrowRight,
-  Settings,
-  Flame,
-  Plus,
   ChevronDown,
   Calendar as CalendarIcon,
   Sparkles,
   UserCircle,
-  Square,
-  CheckSquare,
-  Search,
   List,
   KanbanSquare,
-  Clock,
+  Plus,
 } from "lucide-react-native";
-import { TextInput } from "react-native";
+import { Agenda, DailyTask, TaskStatus, Priority } from "../types";
 import CheckInModal from "./CheckInModal";
 import CalendarModal from "./CalendarModal";
 import GoalSettingsModal from "./GoalSettingsModal";
 import ProfileModal from "./ProfileModal";
 import QuickAddModal from "./QuickAddModal";
-import { getLocalDateString } from "../utils/logic";
+import { getLocalDateString, parseLocalIsoDate } from "../utils/logic";
 import { useTheme } from "../context/ThemeContext";
 import { calculateStreak } from "../utils/insightsLogic";
+import { getDashboardStyles } from "./dashboard/DashboardStyles";
+import TaskCard from "./dashboard/TaskCard";
 
 interface DashboardProps {
   agendas: Agenda[];
@@ -49,367 +38,24 @@ interface DashboardProps {
     strategy?: "TOMORROW" | "SPREAD",
     useBuffer?: boolean
   ) => void;
-  onReorderTasks?: (tasks: DailyTask[]) => void;
   onNewGoal: () => void;
   onUpdateAgenda: (id: string, updates: Partial<Agenda>) => void;
   onDeleteAgenda: (id: string) => void;
   isNewUser?: boolean;
-  onCreateTask: (title: string, dueDate: string, priority: any) => void;
+  onCreateTask: (title: string, dueDate: string, priority: Priority) => void;
 }
-
-// Internal component to handle individual progress bar
-const NumericProgressBar: React.FC<{
-  percentage: number;
-  status: TaskStatus;
-}> = ({ percentage, status }) => {
-  const { theme } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme), [theme]);
-  const isFailed = status === TaskStatus.FAILED;
-  const barColor = isFailed ? theme.error : theme.primary;
-
-  return (
-    <View style={styles.progresBarTrack}>
-      <View
-        style={[
-          styles.progressBarFill,
-          { width: `${percentage}%`, backgroundColor: barColor },
-        ]}
-      />
-    </View>
-  );
-};
-interface TaskCardProps {
-  task: DailyTask;
-  agenda: Agenda;
-  streak?: number; // Add prop
-  onClick: (task: DailyTask) => void;
-  onSettingsClick: () => void;
-  onToggleStatus: (task: DailyTask) => void;
-}
-
-const TaskCard: React.FC<TaskCardProps> = ({
-  task,
-  agenda,
-  streak,
-  onClick,
-  onSettingsClick,
-  onToggleStatus,
-}) => {
-  const { theme } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme), [theme]);
-  const isNumeric = agenda.type === AgendaType.NUMERIC;
-  const percentage = isNumeric
-    ? Math.min((task.actualVal / task.targetVal) * 100, 100)
-    : 0;
-
-  // Status Styles
-  let cardBg = theme.surfaceContainerLow;
-  let iconBg = "transparent";
-  let iconColor = "transparent";
-
-  // Logic for styles
-  if (task.status === TaskStatus.COMPLETED) {
-    cardBg = theme.surfaceContainerHigh;
-    iconBg = theme.primary;
-    iconColor = theme.onPrimary;
-  } else if (task.status === TaskStatus.FAILED) {
-    cardBg = theme.errorContainer;
-    iconBg = theme.error;
-    iconColor = theme.onError;
-  } else if (task.status === TaskStatus.SKIPPED_WITH_BUFFER) {
-    // Buffered State: Amber (Custom for now or derive from tertiary)
-    cardBg = theme.bufferContainer;
-    iconBg = theme.bufferBorder;
-    iconColor = theme.onBuffer;
-  } else if (task.status === TaskStatus.PARTIAL) {
-    cardBg = theme.secondaryContainer;
-    iconBg = theme.secondary;
-    iconColor = theme.onSecondary;
-  }
-
-  const renderIcon = () => {
-    if (task.status === TaskStatus.PENDING) return null;
-    if (task.status === TaskStatus.PARTIAL)
-      return (
-        <Text style={{ fontSize: 10, fontWeight: "bold", color: iconColor }}>
-          %
-        </Text>
-      );
-    if (task.status === TaskStatus.SKIPPED_WITH_BUFFER)
-      return <Shield size={14} color={iconColor} />;
-    if (task.status === TaskStatus.FAILED)
-      return <AlertCircle size={14} color={iconColor} />;
-    return <Check size={14} color={iconColor} strokeWidth={3} />;
-  };
-
-  const isOneOff = agenda.type === AgendaType.ONE_OFF;
-
-  return (
-    <TouchableOpacity
-      onPress={() => onClick(task)}
-      style={[styles.card, { backgroundColor: cardBg }]}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.cardLeft}>
-          {/* ... existing IconBox/Checkbox ... */}
-          {/* Replace original IconBox block to inject Streak Badge logic if needed, 
-              but "CardLeft" contains the IconBox. 
-              Let's inject the Streak Badge next to the Title or Subtitle.
-           */}
-          {/* Actually, let's put it on the right side next to Settings or Priority? 
-               Or next to the title. 
-           */}
-
-          {isOneOff ? (
-            // ... existing one-off ...
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation(); // Prevent opening modal
-                onToggleStatus(task);
-              }}
-              style={{ padding: 4, marginLeft: -4 }}
-            >
-              {task.status === TaskStatus.COMPLETED ? (
-                <CheckSquare size={24} color={theme.primary} />
-              ) : (
-                <Square size={24} color={theme.outline} />
-              )}
-            </TouchableOpacity>
-          ) : (
-            <View
-              style={[
-                styles.iconBox,
-                {
-                  backgroundColor: iconBg,
-                  borderColor:
-                    task.status === TaskStatus.PENDING
-                      ? theme.outline
-                      : "transparent",
-                  borderWidth: task.status === TaskStatus.PENDING ? 1 : 0,
-                },
-              ]}
-            >
-              {renderIcon()}
-            </View>
-          )}
-
-          <View style={{ flex: 1 }}>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-            >
-              <Text
-                style={[
-                  styles.cardTitle,
-                  task.status === TaskStatus.COMPLETED &&
-                    styles.textLineThrough,
-                  { marginRight: 0 }, // Reset margin
-                ]}
-                numberOfLines={1}
-              >
-                {agenda.title}
-              </Text>
-              {streak && streak > 2 && (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    backgroundColor: "#FFC10720",
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                    borderRadius: 100,
-                  }}
-                >
-                  <Flame size={10} color="#FFC107" fill="#FFC107" />
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      color: "#FF9800",
-                      fontWeight: "bold",
-                      marginLeft: 2,
-                    }}
-                  >
-                    {streak}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.cardSubtitle}>
-              {task.scheduledDate !== getLocalDateString() && (
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <CalendarIcon
-                    size={10}
-                    color={theme.onSurfaceVariant}
-                    style={{ marginRight: 2 }}
-                  />
-                  <Text style={{ color: theme.secondary, fontWeight: "500" }}>
-                    {(() => {
-                      const d = new Date(task.scheduledDate + "T00:00:00");
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      if (task.scheduledDate === getLocalDateString(tomorrow))
-                        return "Tomorrow";
-                      return d.toLocaleDateString([], {
-                        month: "short",
-                        day: "numeric",
-                      });
-                    })()}
-                  </Text>
-                  <Text style={{ opacity: 0.8 }}> • </Text>
-                </View>
-              )}
-              {agenda.reminderTime && (
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Clock
-                    size={10}
-                    color={theme.onSurfaceVariant}
-                    style={{ marginRight: 2 }}
-                  />
-                  <Text style={{ color: theme.primary, fontWeight: "500" }}>
-                    {new Date(agenda.reminderTime).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </Text>
-                  <Text style={{ opacity: 0.8 }}> • </Text>
-                </View>
-              )}
-              {isNumeric
-                ? `${task.targetVal} ${agenda.unit || "units"}`
-                : isOneOff
-                ? "Task"
-                : "Daily habit"}
-              {task.mood && (
-                <Text style={{ opacity: 0.8 }}> • {task.mood}</Text>
-              )}
-            </Text>
-
-            {/* Subtask Progress Mini Bar */}
-            {isOneOff && task.subtasks && task.subtasks.length > 0 && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginTop: 4,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    color: theme.onSurfaceVariant,
-                    marginRight: 4,
-                  }}
-                >
-                  {task.subtasks.filter((s) => s.isCompleted).length}/
-                  {task.subtasks.length}
-                </Text>
-                <View
-                  style={{
-                    height: 4,
-                    width: 40,
-                    backgroundColor: theme.surfaceVariant,
-                    borderRadius: 2,
-                  }}
-                >
-                  <View
-                    style={{
-                      height: 4,
-                      width: `${
-                        (task.subtasks.filter((s) => s.isCompleted).length /
-                          task.subtasks.length) *
-                        100
-                      }%`,
-                      backgroundColor: theme.primary,
-                      borderRadius: 2,
-                    }}
-                  />
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.cardRight}>
-          {/* ... */}
-          {/* Priority Indicator */}
-          {agenda.priority === "HIGH" && (
-            <View
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: theme.error,
-                position: "absolute",
-                top: 4,
-                right: 32,
-              }}
-            />
-          )}
-          {agenda.priority === "LOW" && (
-            <View
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: theme.tertiary,
-                position: "absolute",
-                top: 4,
-                right: 32,
-              }}
-            />
-          )}
-
-          {task.status === TaskStatus.PENDING && (
-            <ArrowRight
-              size={20}
-              color={theme.onSurfaceVariant}
-              style={{ opacity: 0.5 }}
-            />
-          )}
-          <TouchableOpacity
-            onPress={onSettingsClick}
-            style={styles.settingsBtn}
-          >
-            <Settings
-              size={18}
-              color={theme.onSurfaceVariant}
-              style={{ opacity: 0.5 }}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {task.wasRecalculated && (
-          <View style={styles.recalcBadge}>
-            <Text style={styles.recalcText}>RECALCULATED</Text>
-          </View>
-        )}
-      </View>
-
-      {isNumeric && task.status !== TaskStatus.PENDING && (
-        <View style={{ marginTop: 12, marginLeft: 40 }}>
-          <NumericProgressBar percentage={percentage} status={task.status} />
-        </View>
-      )}
-
-      {task.note && task.status !== TaskStatus.PENDING && (
-        <Text style={styles.noteText}>"{task.note}"</Text>
-      )}
-    </TouchableOpacity>
-  );
-};
 
 const Dashboard: React.FC<DashboardProps> = ({
   agendas,
   tasks,
-  onUpdateTask,
-  onReorderTasks,
   onNewGoal,
+  onUpdateTask,
   onUpdateAgenda,
   onDeleteAgenda,
-  isNewUser,
   onCreateTask,
 }) => {
   const { theme } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme), [theme]);
+  const styles = useMemo(() => getDashboardStyles(theme), [theme]);
   const [selectedTask, setSelectedTask] = useState<DailyTask | null>(null);
   const [selectedAgenda, setSelectedAgenda] = useState<Agenda | null>(null);
   const [settingsAgenda, setSettingsAgenda] = useState<Agenda | null>(null);
@@ -421,22 +67,15 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"LIST" | "BOARD">("LIST");
   const [boardPage, setBoardPage] = useState(0);
-
-  /* ------------------ Filtering Logic ------------------ */
   const [searchText, setSearchText] = useState("");
   const [activeFilter, setActiveFilter] = useState<
     "All" | "Today" | "Upcoming" | "Overdue" | "High Priority"
   >("All");
 
-  const [localTasks, setLocalTasks] = useState<DailyTask[]>([]);
-
-  useEffect(() => {
-    // 1. Base Filter (Date & Agenda Existence)
+  const localTasks = useMemo(() => {
     let filtered = tasks.filter((t) =>
       agendas.some((a) => a.id === t.agendaId)
     );
-
-    // 2. Apply "Active Filter" Logic
     const todayStr = getLocalDateString();
 
     if (activeFilter === "Today") {
@@ -453,20 +92,11 @@ const Dashboard: React.FC<DashboardProps> = ({
         return ag?.priority === "HIGH" && t.status === TaskStatus.PENDING;
       });
     }
-    // "All" keeps everything (allows seeing history if we want, or default to generally showing relevant stuff)
-    // Actually, "All" usually implies "All Active" or "Current View".
-    // Let's keep "All" as "All for Selected Date" to maintain existing calendar behavior?
-    // OR, if user explicitly clicks "All", maybe they want to search global?
-    // Let's Hybridize:
-
-    // If Filter is "All" or "Today", we respect the `selectedDate` from the calendar state
-    // to map to the original design, UNLESS search text is present (then we search everything).
 
     if (!searchText && (activeFilter === "All" || activeFilter === "Today")) {
       filtered = filtered.filter((t) => t.scheduledDate === selectedDate);
     }
 
-    // 3. Search Text
     if (searchText.trim()) {
       const lower = searchText.toLowerCase();
       filtered = filtered.filter((t) => {
@@ -475,46 +105,29 @@ const Dashboard: React.FC<DashboardProps> = ({
       });
     }
 
-    // 4. Sort Logic (Existing)
-    const sorted = filtered.sort((a, b) => {
-      // ... (Keep existing sort logic)
-      // 1. Status: Pending first
+    return filtered.sort((a, b) => {
       const statusScore = (status: TaskStatus) =>
         status === TaskStatus.PENDING ? 0 : 1;
-      if (statusScore(a.status) !== statusScore(b.status)) {
+      if (statusScore(a.status) !== statusScore(b.status))
         return statusScore(a.status) - statusScore(b.status);
-      }
 
-      // 2. Priority
       const agendaA = agendas.find((ag) => ag.id === a.agendaId);
       const agendaB = agendas.find((ag) => ag.id === b.agendaId);
-
-      // Higher score = Higher priority
-      const priorityScore = (p?: string) => {
-        if (p === "HIGH") return 3;
-        if (p === "MEDIUM") return 2;
-        if (p === "LOW") return 1;
-        return 2; // Default Medium
-      };
+      const priorityScore = (p?: string) =>
+        p === "HIGH" ? 3 : p === "LOW" ? 1 : 2;
 
       const scoreA = priorityScore(agendaA?.priority);
       const scoreB = priorityScore(agendaB?.priority);
+      if (scoreA !== scoreB) return scoreB - scoreA;
 
-      if (scoreA !== scoreB) return scoreB - scoreA; // Descending
-
-      // 3. Date
       return a.scheduledDate.localeCompare(b.scheduledDate);
     });
-
-    setLocalTasks(sorted);
   }, [tasks, selectedDate, agendas, searchText, activeFilter]);
 
-  /* ------------------ Animations ------------------ */
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (viewMode === "LIST" && localTasks.length === 0 && agendas.length > 0) {
-      // Pulse
       Animated.loop(
         Animated.sequence([
           Animated.timing(scaleAnim, {
@@ -537,15 +150,13 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const handleTaskClick = (task: DailyTask) => {
     const agenda = agendas.find((a) => a.id === task.agendaId);
-    if (!agenda) return;
-
-    // For ONE_OFF tasks, clicking body behaves normally (opens details)
-    setSelectedTask(task);
-    setSelectedAgenda(agenda);
+    if (agenda) {
+      setSelectedTask(task);
+      setSelectedAgenda(agenda);
+    }
   };
 
   const handleQuickToggle = (task: DailyTask) => {
-    // Simple toggle for ONE_OFF tasks
     const newStatus =
       task.status === TaskStatus.COMPLETED
         ? TaskStatus.PENDING
@@ -553,20 +164,24 @@ const Dashboard: React.FC<DashboardProps> = ({
     onUpdateTask({ ...task, status: newStatus });
   };
 
-  const isToday = selectedDate === getLocalDateString();
-  const dateObj = new Date(selectedDate + "T00:00:00");
-  const formattedDate = dateObj.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  const formattedDate = useMemo(() => {
+    try {
+      const dateObj = parseLocalIsoDate(selectedDate);
+      if (isNaN(dateObj.getTime())) throw new Error("Invalid Date");
+
+      return dateObj.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+    } catch (e) {
+      return "Selected Date";
+    }
+  }, [selectedDate]);
 
   return (
     <View style={styles.container}>
-      {/* Header & Controls */}
       <View style={styles.headerWrapper}>
-        {/* Row wrapper for filters + toggle */}
-
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => setIsCalendarOpen(true)}
@@ -577,7 +192,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <ChevronDown size={16} color={theme.onSurfaceVariant} />
             </Text>
             <Text style={styles.dateTitle}>
-              {isToday ? "Today" : "Your Plan"}
+              {selectedDate === getLocalDateString() ? "Today" : "Your Plan"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -588,7 +203,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -599,7 +213,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           />
         </View>
 
-        {/* Filters & Toggle Component */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <ScrollView
             horizontal
@@ -618,7 +231,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 ]}
                 onPress={() => {
                   setActiveFilter(f);
-                  // If switching to Today/All, sync Date?
                   if (f === "Today") setSelectedDate(getLocalDateString());
                 }}
               >
@@ -646,7 +258,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         </View>
       </View>
 
-      {/* List / Board Switch */}
       <View style={styles.listContainer}>
         <View
           style={{
@@ -659,7 +270,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           <Text style={styles.sectionTitle}>
             {viewMode === "LIST" ? "Priorities" : "Kanban Board"}
           </Text>
-
           {viewMode === "BOARD" && (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               {[0, 1, 2].map((i) => (
@@ -709,6 +319,10 @@ const Dashboard: React.FC<DashboardProps> = ({
               data={localTasks}
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ paddingBottom: 100 }}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              initialNumToRender={10}
               renderItem={({ item }) => {
                 const agenda = agendas.find((a) => a.id === item.agendaId);
                 if (!agenda) return null;
@@ -717,6 +331,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <TaskCard
                       task={item}
                       agenda={agenda}
+                      streak={calculateStreak(tasks, agenda.id).current}
+                      theme={theme}
+                      styles={styles}
                       onClick={handleTaskClick}
                       onSettingsClick={() => setSettingsAgenda(agenda)}
                       onToggleStatus={handleQuickToggle}
@@ -739,36 +356,53 @@ const Dashboard: React.FC<DashboardProps> = ({
               setBoardPage(Math.round(offsetX / width));
             }}
           >
-            {/* TO DO Column */}
-            <View style={styles.column}>
-              <View
-                style={[
-                  styles.columnHeader,
-                  { backgroundColor: theme.surfaceContainerHighest },
-                ]}
-              >
-                <Text style={styles.columnTitle}>To Do</Text>
+            {[
+              {
+                title: "To Do",
+                filter: (t: DailyTask) => t.status === TaskStatus.PENDING,
+                bg: theme.surfaceContainerHighest,
+                color: theme.onSurface,
+              },
+              {
+                title: "In Progress",
+                filter: (t: DailyTask) =>
+                  t.status === TaskStatus.PARTIAL ||
+                  t.status === TaskStatus.SKIPPED_WITH_BUFFER,
+                bg: theme.secondaryContainer,
+                color: theme.onSecondaryContainer,
+              },
+              {
+                title: "Done",
+                filter: (t: DailyTask) =>
+                  t.status === TaskStatus.COMPLETED ||
+                  t.status === TaskStatus.FAILED,
+                bg: theme.surfaceContainerHigh,
+                color: theme.onSurface,
+              },
+            ].map((col, idx) => (
+              <View key={idx} style={styles.column}>
                 <View
-                  style={[
-                    styles.countBadge,
-                    { backgroundColor: theme.surface },
-                  ]}
+                  style={[styles.columnHeader, { backgroundColor: col.bg }]}
                 >
-                  <Text style={styles.countText}>
-                    {
-                      localTasks.filter((t) => t.status === TaskStatus.PENDING)
-                        .length
-                    }
+                  <Text style={[styles.columnTitle, { color: col.color }]}>
+                    {col.title}
                   </Text>
+                  <View
+                    style={[
+                      styles.countBadge,
+                      { backgroundColor: theme.surface },
+                    ]}
+                  >
+                    <Text style={styles.countText}>
+                      {localTasks.filter(col.filter).length}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
-              >
-                {localTasks
-                  .filter((t) => t.status === TaskStatus.PENDING)
-                  .map((item) => {
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 100 }}
+                >
+                  {localTasks.filter(col.filter).map((item) => {
                     const agenda = agendas.find((a) => a.id === item.agendaId);
                     if (!agenda) return null;
                     return (
@@ -776,6 +410,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <TaskCard
                           task={item}
                           agenda={agenda}
+                          streak={calculateStreak(tasks, agenda.id).current}
+                          theme={theme}
+                          styles={styles}
                           onClick={handleTaskClick}
                           onSettingsClick={() => setSettingsAgenda(agenda)}
                           onToggleStatus={handleQuickToggle}
@@ -783,123 +420,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </View>
                     );
                   })}
-              </ScrollView>
-            </View>
-
-            {/* IN PROGRESS Column */}
-            <View style={styles.column}>
-              <View
-                style={[
-                  styles.columnHeader,
-                  { backgroundColor: theme.secondaryContainer },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.columnTitle,
-                    { color: theme.onSecondaryContainer },
-                  ]}
-                >
-                  In Progress
-                </Text>
-                <View
-                  style={[
-                    styles.countBadge,
-                    { backgroundColor: theme.surface },
-                  ]}
-                >
-                  <Text style={styles.countText}>
-                    {
-                      localTasks.filter(
-                        (t) =>
-                          t.status === TaskStatus.PARTIAL ||
-                          t.status === TaskStatus.SKIPPED_WITH_BUFFER
-                      ).length
-                    }
-                  </Text>
-                </View>
+                </ScrollView>
               </View>
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
-              >
-                {localTasks
-                  .filter(
-                    (t) =>
-                      t.status === TaskStatus.PARTIAL ||
-                      t.status === TaskStatus.SKIPPED_WITH_BUFFER
-                  )
-                  .map((item) => {
-                    const agenda = agendas.find((a) => a.id === item.agendaId);
-                    if (!agenda) return null;
-                    return (
-                      <View key={item.id} style={{ marginBottom: 10 }}>
-                        <TaskCard
-                          task={item}
-                          agenda={agenda}
-                          onClick={handleTaskClick}
-                          onSettingsClick={() => setSettingsAgenda(agenda)}
-                          onToggleStatus={handleQuickToggle}
-                        />
-                      </View>
-                    );
-                  })}
-              </ScrollView>
-            </View>
-
-            {/* DONE Column */}
-            <View style={styles.column}>
-              <View
-                style={[
-                  styles.columnHeader,
-                  { backgroundColor: theme.surfaceContainerHigh },
-                ]}
-              >
-                <Text style={styles.columnTitle}>Done</Text>
-                <View
-                  style={[
-                    styles.countBadge,
-                    { backgroundColor: theme.surface },
-                  ]}
-                >
-                  <Text style={styles.countText}>
-                    {
-                      localTasks.filter(
-                        (t) =>
-                          t.status === TaskStatus.COMPLETED ||
-                          t.status === TaskStatus.FAILED
-                      ).length
-                    }
-                  </Text>
-                </View>
-              </View>
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
-              >
-                {localTasks
-                  .filter(
-                    (t) =>
-                      t.status === TaskStatus.COMPLETED ||
-                      t.status === TaskStatus.FAILED
-                  )
-                  .map((item) => {
-                    const agenda = agendas.find((a) => a.id === item.agendaId);
-                    if (!agenda) return null;
-                    return (
-                      <View key={item.id} style={{ marginBottom: 10 }}>
-                        <TaskCard
-                          task={item}
-                          agenda={agenda}
-                          onClick={handleTaskClick}
-                          onSettingsClick={() => setSettingsAgenda(agenda)}
-                          onToggleStatus={handleQuickToggle}
-                        />
-                      </View>
-                    );
-                  })}
-              </ScrollView>
-            </View>
+            ))}
           </ScrollView>
         )}
       </View>
@@ -915,14 +438,12 @@ const Dashboard: React.FC<DashboardProps> = ({
         onUpdateTask={onUpdateTask}
         onDeleteAgenda={onDeleteAgenda}
       />
-
       <CalendarModal
         isOpen={isCalendarOpen}
         onClose={() => setIsCalendarOpen(false)}
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
       />
-
       <GoalSettingsModal
         isOpen={!!settingsAgenda}
         onClose={() => setSettingsAgenda(null)}
@@ -930,12 +451,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         onUpdateAgenda={(updated) => onUpdateAgenda(updated.id, updated)}
         onDeleteAgenda={onDeleteAgenda}
       />
-
       <ProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
       />
-
       <QuickAddModal
         isOpen={isQuickAddOpen}
         onClose={() => setIsQuickAddOpen(false)}
@@ -943,13 +462,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       />
 
       <Animated.View
-        style={[
-          styles.fab,
-          {
-            elevation: 6, // explicitly set for Android
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
+        style={[styles.fab, { transform: [{ scale: scaleAnim }] }]}
       >
         <TouchableOpacity
           style={{
@@ -966,277 +479,5 @@ const Dashboard: React.FC<DashboardProps> = ({
     </View>
   );
 };
-
-const getStyles = (theme: any) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      padding: 16,
-      backgroundColor: theme.background, // Explicit background
-    },
-    headerWrapper: {
-      marginBottom: 16,
-    },
-    header: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      marginTop: 8,
-      marginBottom: 16,
-    },
-    searchContainer: {
-      marginBottom: 12,
-      backgroundColor: theme.surfaceContainerHigh,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-    },
-    searchInput: {
-      fontSize: 16,
-      color: theme.onSurface,
-    },
-    filterScroll: {
-      marginBottom: 8,
-    },
-    filterChip: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 100,
-      backgroundColor: theme.surfaceContainer,
-      borderWidth: 1,
-      borderColor: "transparent",
-    },
-    filterChipActive: {
-      backgroundColor: theme.secondaryContainer,
-      borderColor: theme.primary,
-    },
-    filterText: {
-      fontSize: 14,
-      color: theme.onSurfaceVariant,
-      fontWeight: "500",
-    },
-    filterTextActive: {
-      color: theme.onSecondaryContainer,
-    },
-    dateSelector: {
-      marginLeft: -4,
-      padding: 8,
-      borderRadius: 16,
-    },
-    dateSubtext: {
-      flexDirection: "row",
-      alignItems: "center",
-      color: theme.onSurfaceVariant,
-      fontSize: 14,
-      fontWeight: "500",
-    },
-    dateTitle: {
-      fontSize: 32,
-      color: theme.onSurface,
-      fontWeight: "400",
-    },
-    profileBtn: {
-      padding: 8,
-      marginRight: -8,
-    },
-    statsContainer: {
-      flexDirection: "row",
-      gap: 12,
-      marginBottom: 24,
-    },
-    statCard: {
-      flex: 1,
-      padding: 16,
-      borderRadius: 24,
-      justifyContent: "center",
-      alignItems: "flex-start",
-    },
-    statNumber: {
-      fontSize: 36,
-      fontWeight: "400",
-      color: theme.onSurface,
-    },
-    statLabel: {
-      fontSize: 12,
-      fontWeight: "500",
-      color: theme.onSurfaceVariant,
-      marginTop: 4,
-    },
-    listContainer: {
-      flex: 1,
-    },
-    sectionTitle: {
-      fontSize: 14,
-      fontWeight: "500",
-      color: theme.primary,
-      marginLeft: 4,
-      marginBottom: 12,
-    },
-
-    // Card
-    card: {
-      padding: 16,
-      borderRadius: 24,
-      marginBottom: 8,
-    },
-    cardHeader: {
-      position: "relative",
-    },
-    cardLeft: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 16,
-    },
-    cardRight: {
-      position: "absolute",
-      right: 0,
-      top: 0,
-      flexDirection: "row",
-      gap: 4,
-    },
-    iconBox: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    cardTitle: {
-      fontSize: 16,
-      fontWeight: "400",
-      color: theme.onSurface,
-      marginRight: 40, // Space for settings
-    },
-    cardSubtitle: {
-      fontSize: 12,
-      color: theme.onSurfaceVariant,
-      marginTop: 2,
-    },
-    settingsBtn: {
-      padding: 8,
-    },
-    textLineThrough: {
-      textDecorationLine: "line-through",
-      opacity: 0.6,
-    },
-    noteText: {
-      marginTop: 8,
-      marginLeft: 40,
-      fontSize: 12,
-      fontStyle: "italic",
-      color: theme.onSurfaceVariant,
-    },
-    recalcBadge: {
-      position: "absolute",
-      top: 8, // adjust
-      right: 8, // adjust
-    },
-    recalcText: {
-      fontSize: 8,
-      color: theme.primary,
-    },
-    progresBarTrack: {
-      height: 8,
-      width: "100%",
-      backgroundColor: theme.surfaceVariant + "33", // 20% opacity
-      borderRadius: 4,
-      overflow: "hidden",
-    },
-    progressBarFill: {
-      height: "100%",
-      borderRadius: 4,
-    },
-    emptyState: {
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 40,
-      backgroundColor: theme.surfaceContainerHigh,
-      borderRadius: 24,
-    },
-    // Board Styles
-    boardContainer: {
-      paddingHorizontal: 16,
-      gap: 16,
-    },
-    column: {
-      width: Dimensions.get("window").width * 0.85,
-      height: "100%",
-    },
-    columnHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: 12,
-      borderRadius: 16,
-      marginBottom: 12,
-    },
-    columnTitle: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: theme.onSurface,
-    },
-    countBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
-    },
-    countText: {
-      fontSize: 12,
-      fontWeight: "bold",
-    },
-    viewToggleBtn: {
-      padding: 10,
-      backgroundColor: theme.surfaceContainer,
-      borderRadius: 12,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    emptyIcon: {
-      width: 64,
-      height: 64,
-      backgroundColor: theme.surfaceVariant,
-      borderRadius: 16,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 16,
-    },
-    emptyTitle: {
-      fontSize: 18,
-      color: theme.onSurface,
-      marginBottom: 8,
-    },
-    emptyText: {
-      fontSize: 14,
-      color: theme.onSurfaceVariant,
-      marginBottom: 24,
-      textAlign: "center",
-    },
-    createBtn: {
-      backgroundColor: theme.primary,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 24,
-    },
-    createBtnText: {
-      color: theme.onPrimary,
-      fontWeight: "500",
-    },
-    fab: {
-      position: "absolute",
-      bottom: 120, // Sit above the Bottom Navigation Bar
-      right: 24,
-      width: 64,
-      height: 64,
-      borderRadius: 24, // MD3 Large FAB
-      backgroundColor: theme.primaryContainer,
-      justifyContent: "center",
-      alignItems: "center",
-      elevation: 6,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-    },
-  });
 
 export default Dashboard;

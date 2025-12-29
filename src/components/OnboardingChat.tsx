@@ -17,6 +17,7 @@ import { generateId, getTodayDateString } from "../utils/logic";
 import { useTheme } from "../context/ThemeContext";
 import { Send, ArrowLeft } from "lucide-react-native";
 import { supabase } from "../lib/supabase";
+import { MD3Theme } from "../theme";
 
 // Enable LayoutAnimation for Android
 if (
@@ -66,7 +67,7 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
       text,
       sender: "user",
     };
-    
+
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInputValue("");
@@ -74,8 +75,13 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
 
     try {
       // 2. Call Edge Function
-      const { data, error } = await supabase.functions.invoke('chat-coach', {
-        body: { messages: updatedMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text })) },
+      const { data, error } = await supabase.functions.invoke("chat-coach", {
+        body: {
+          messages: updatedMessages.map((m) => ({
+            role: m.sender === "user" ? "user" : "assistant",
+            content: m.text,
+          })),
+        },
       });
 
       if (error) throw error;
@@ -89,14 +95,17 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
       if (is_ready && agendas && agendas.length > 0) {
         // Add final bot message
         if (message) {
-            setMessages((prev) => [
-                ...prev,
-                { id: generateId(), text: message, sender: "bot" },
-            ]);
+          setMessages((prev) => [
+            ...prev,
+            { id: generateId(), text: message, sender: "bot" },
+          ]);
         }
-        
+
         // Process Agendas
-        const newAgendas: Agenda[] = agendas.map((raw: any) => ({
+        const newAgendas: Agenda[] = agendas.map(
+          (
+            raw: Partial<Agenda> & { startDate?: string; endDate?: string }
+          ) => ({
             id: generateId(),
             title: raw.title || "New Goal",
             type: raw.type as AgendaType,
@@ -105,41 +114,45 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
             targetVal: raw.targetVal || 1,
             unit: raw.unit || "check-in",
             frequency: "daily",
-            startDate: getTodayDateString(),
+
+            // FIX: Use the dates provided by the AI response
+            startDate: raw.startDate || getTodayDateString(),
+            endDate: raw.endDate, // <--- FIX: Capture the AI's calculated end date
+
             bufferTokens: raw.bufferTokens || 0,
             isRecurring: raw.isRecurring ?? true,
-        }));
+          })
+        );
 
         // Allow user to read the message for a moment before completing
         setTimeout(() => {
-            onComplete(newAgendas);
+          onComplete(newAgendas);
         }, 1500);
-
       } else {
         // Just a conversation reply
         if (message) {
-            setMessages((prev) => [
-              ...prev,
-              { id: generateId(), text: message, sender: "bot" },
-            ]);
+          setMessages((prev) => [
+            ...prev,
+            { id: generateId(), text: message, sender: "bot" },
+          ]);
         }
       }
-
     } catch (error: any) {
       console.error("AI Error:", error);
       setIsTyping(false);
 
-      let errorMessage = "Could not connect to the Goal Coach. Please try again.";
-      
+      let errorMessage =
+        "Could not connect to the Goal Coach. Please try again.";
+
       // Attempt to extract real error message from Supabase response
       if (error?.context?.json) {
         try {
-            const body = await error.context.json();
-            if (body?.error) {
-                errorMessage = `AI Error: ${body.error}`;
-            }
+          const body = await error.context.json();
+          if (body?.error) {
+            errorMessage = `AI Error: ${body.error}`;
+          }
         } catch (e) {
-            console.log("Failed to parse error body", e);
+          console.log("Failed to parse error body", e);
         }
       } else if (error?.message) {
         errorMessage = error.message;
@@ -240,7 +253,7 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
   );
 };
 
-const getStyles = (theme: any) =>
+const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     container: {
       flex: 1,

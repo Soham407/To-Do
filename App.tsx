@@ -13,8 +13,8 @@ import {
   ensureTasksForDate,
   getTodayDateString,
   generateId,
-  DEFAULT_DURATION_DAYS,
 } from "./src/utils/logic";
+import { APP_CONSTANTS } from "./src/constants";
 import { StatusBar } from "expo-status-bar";
 import { migrateLocalDataToSupabase } from "./src/utils/migration";
 import { NotificationService } from "./src/services/NotificationService"; // Import Service
@@ -23,13 +23,50 @@ import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/components/LoginScreen";
 import SignupScreen from "./src/components/SignupScreen";
 
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <SafeAreaProvider>
+          <Layout showNav={false} activeTab="dashboard" onTabChange={() => {}}>
+            <Dashboard
+              agendas={[]}
+              tasks={[]}
+              onUpdateTask={() => {}}
+              onNewGoal={() => {}}
+              onUpdateAgenda={() => {}}
+              onDeleteAgenda={() => {}}
+              onCreateTask={() => {}}
+            />
+          </Layout>
+        </SafeAreaProvider>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <MainApp />
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <MainApp />
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 
@@ -103,18 +140,31 @@ function MainApp() {
         try {
           // Check persistent flag
           const isMigrated = await AsyncStorage.getItem(userMigrationKey);
-          if (isMigrated === "true") {
-            migrationGuard.current = false;
-            return;
-          }
+          if (isMigrated === "true") return;
+
+          const isInProgress = await AsyncStorage.getItem(
+            `migration_in_progress_${session.user.id}`
+          );
+          if (isInProgress === "true") return;
+
+          await AsyncStorage.setItem(
+            `migration_in_progress_${session.user.id}`,
+            "true"
+          );
 
           // Run migration
           await migrateLocalDataToSupabase();
 
           // Set persistent flag on success
           await AsyncStorage.setItem(userMigrationKey, "true");
+          await AsyncStorage.removeItem(
+            `migration_in_progress_${session.user.id}`
+          );
         } catch (e) {
           console.error("Migration failed, allowing retry:", e);
+          await AsyncStorage.removeItem(
+            `migration_in_progress_${session.user.id}`
+          );
           // Reset guard to allow retry on next mount/session change
           migrationGuard.current = false;
         }
@@ -137,7 +187,7 @@ function MainApp() {
 
   const handleAgendaCreated = (newAgendas: Agenda | Agenda[]) => {
     const agendasList = Array.isArray(newAgendas) ? newAgendas : [newAgendas];
-    
+
     setAgendas((prev) => {
       const wasEmpty = prev.length === 0;
       const updated = [...prev, ...agendasList];
@@ -145,7 +195,9 @@ function MainApp() {
       return updated;
     });
 
-    const allNewTasks = agendasList.flatMap(agenda => createInitialTasks(agenda));
+    const allNewTasks = agendasList.flatMap((agenda) =>
+      createInitialTasks(agenda)
+    );
     setTasks((prev) => [...prev, ...allNewTasks]);
 
     setView("dashboard");
@@ -202,15 +254,20 @@ function MainApp() {
 
     const newAgenda = { ...oldAgenda, ...updates };
 
-    setAgendas((prev) =>
-      prev.map((a) => (a.id === id ? newAgenda : a))
-    );
+    setAgendas((prev) => prev.map((a) => (a.id === id ? newAgenda : a)));
 
     // Schedule or Cancel Reminder based on changes
     NotificationService.scheduleTaskReminder(newAgenda);
 
     if (updates.totalTarget && updates.totalTarget > 0) {
-      const dailyTarget = updates.targetVal || oldAgenda.targetVal || Math.ceil(updates.totalTarget / DEFAULT_DURATION_DAYS);
+      const dailyTarget =
+        updates.targetVal !== undefined
+          ? updates.targetVal
+          : oldAgenda.targetVal ||
+            Math.ceil(
+              updates.totalTarget / APP_CONSTANTS.DEFAULT_DURATION_DAYS
+            );
+
       setTasks((prev) =>
         prev.map((t) => {
           if (t.agendaId === id && t.status === "PENDING") {

@@ -98,7 +98,7 @@ export const MD3DarkTheme = {
 export type MD3Theme = typeof MD3LightTheme;
 
 export const Fonts = {
-  regular: "System", // Use system font for now, or Roboto if loaded
+  regular: "System",
   medium: "System",
   bold: "System",
 };

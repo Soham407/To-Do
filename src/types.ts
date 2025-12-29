@@ -51,6 +51,7 @@ export interface Agenda {
   recurrencePattern?: "DAILY" | "WEEKLY" | "WEEKDAYS" | "CUSTOM";
   recurrenceDays?: number[]; // 0 = Sunday, 1 = Monday, etc.
   reminderTime?: string; // ISO String for one-off, or time-of-day reference for recurring
+  endDate?: string; // Optional end date for the agenda
 }
 
 export interface DailyTask {

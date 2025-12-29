@@ -20,7 +20,8 @@ import {
 import { useTheme } from "../context/ThemeContext";
 import { X, Check, Plus, Trash, Edit3, Eye } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
-import { generateId } from "../utils/logic";
+import { generateId, sanitizeMarkdown } from "../utils/logic";
+import { MD3Theme } from "../theme";
 
 interface Props {
   isOpen: boolean;
@@ -119,7 +120,7 @@ const CheckInModal: React.FC<Props> = ({
       status: status,
       failureTag: isShortfall ? selectedTag : FailureTag.NONE,
       subtasks: subtasks,
-      note: note.trim(),
+      note: sanitizeMarkdown(note),
     };
 
     onUpdateTask(
@@ -131,11 +132,12 @@ const CheckInModal: React.FC<Props> = ({
   };
 
   const handleAddSubtask = () => {
-    if (!newItemText.trim()) return;
+    const sanitizedTitle = sanitizeMarkdown(newItemText);
+    if (!sanitizedTitle) return;
     const newItem: Subtask = {
       id: generateId(),
       taskId: task.id,
-      title: newItemText.trim(),
+      title: sanitizedTitle,
       isCompleted: false,
     };
     setSubtasks([...subtasks, newItem]);
@@ -410,27 +412,58 @@ const CheckInModal: React.FC<Props> = ({
 
             {/* Notes Section */}
             <View style={styles.section}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Notes</Text>
-                <TouchableOpacity onPress={() => setIsPreview(!isPreview)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 4 }}>
-                   {isPreview ? <Edit3 size={14} color={theme.primary} /> : <Eye size={14} color={theme.primary} />}
-                   <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '500' }}>{isPreview ? "Edit" : "Preview"}</Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                  Notes
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setIsPreview(!isPreview)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: 4,
+                  }}
+                >
+                  {isPreview ? (
+                    <Edit3 size={14} color={theme.primary} />
+                  ) : (
+                    <Eye size={14} color={theme.primary} />
+                  )}
+                  <Text
+                    style={{
+                      color: theme.primary,
+                      fontSize: 12,
+                      fontWeight: "500",
+                    }}
+                  >
+                    {isPreview ? "Edit" : "Preview"}
+                  </Text>
                 </TouchableOpacity>
               </View>
 
               {isPreview ? (
                 <View style={styles.markdownWrapper}>
-                  <Markdown style={getMarkdownStyles(theme)}>{note || "_No notes_"}</Markdown>
+                  <Markdown style={getMarkdownStyles(theme)}>
+                    {note || "_No notes_"}
+                  </Markdown>
                 </View>
               ) : (
                 <TextInput
-                    style={styles.noteInput}
-                    multiline
-                    textAlignVertical="top"
-                    placeholder="Add notes (supports Markdown)..."
-                    placeholderTextColor={theme.onSurfaceVariant}
-                    value={note}
-                    onChangeText={setNote}
+                  style={styles.noteInput}
+                  multiline
+                  textAlignVertical="top"
+                  placeholder="Add notes (supports Markdown)..."
+                  placeholderTextColor={theme.onSurfaceVariant}
+                  value={note}
+                  onChangeText={setNote}
                 />
               )}
             </View>
@@ -456,7 +489,7 @@ const CheckInModal: React.FC<Props> = ({
   );
 };
 
-const getStyles = (theme: any) =>
+const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     centeredView: {
       flex: 1,
@@ -706,15 +739,28 @@ const getStyles = (theme: any) =>
 const getMarkdownStyles = (theme: any) => ({
   body: { color: theme.onSurface, fontSize: 14 },
   paragraph: { color: theme.onSurface, fontSize: 14, marginVertical: 4 },
-  heading1: { color: theme.onSurface, fontSize: 20, fontWeight: 'bold' as const },
-  heading2: { color: theme.onSurface, fontSize: 18, fontWeight: 'bold' as const },
+  heading1: {
+    color: theme.onSurface,
+    fontSize: 20,
+    fontWeight: "bold" as const,
+  },
+  heading2: {
+    color: theme.onSurface,
+    fontSize: 18,
+    fontWeight: "bold" as const,
+  },
   list_item: { color: theme.onSurface, fontSize: 14 },
   bullet_list: { color: theme.onSurface },
   ordered_list: { color: theme.onSurface },
   hr: { backgroundColor: theme.outline, height: 1 },
-  code_inline: { backgroundColor: theme.surfaceContainerHigh, padding: 4, borderRadius: 4, fontFamily: 'monospace' },
-  strong: { fontWeight: 'bold' as const, color: theme.onSurface },
-  em: { fontStyle: 'italic' as const, color: theme.onSurface },
+  code_inline: {
+    backgroundColor: theme.surfaceContainerHigh,
+    padding: 4,
+    borderRadius: 4,
+    fontFamily: "monospace",
+  },
+  strong: { fontWeight: "bold" as const, color: theme.onSurface },
+  em: { fontStyle: "italic" as const, color: theme.onSurface },
 });
 
 export default CheckInModal;

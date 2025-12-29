@@ -1,16 +1,15 @@
-import {
-  DailyTask,
-  TaskStatus,
-  Agenda,
-  AgendaType,
-} from "../types";
+import { DailyTask, TaskStatus, Agenda, AgendaType } from "../types";
 
 import * as Crypto from "expo-crypto";
 
+import { APP_CONSTANTS } from "../constants";
+
 export const generateId = () => Crypto.randomUUID();
 
-// Helper to get local date string YYYY-MM-DD
 export const getLocalDateString = (date: Date = new Date()) => {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    date = new Date(); // Fallback to now for safety
+  }
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -20,24 +19,25 @@ export const getLocalDateString = (date: Date = new Date()) => {
 export const getTodayDateString = () => getLocalDateString(new Date());
 
 export const parseLocalIsoDate = (isoDateStr: string): Date => {
+  if (!isoDateStr) return new Date();
+
   // Ensure we only look at YYYY-MM-DD even if full ISO string is passed
   const datePart = isoDateStr.substring(0, 10);
   const [y, m, d] = datePart.split("-").map(Number);
+
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date();
+
   return new Date(y, m - 1, d);
 };
 
 export const isDateInRecurrence = (date: Date, agenda: Agenda): boolean => {
-  // Always include start date? Or respect pattern? Usually start date implies participation.
-  // But let's strictly follow pattern.
-
-  if (agenda.type === AgendaType.ONE_OFF) return true; // Handled separately usually
+  if (agenda.type === AgendaType.ONE_OFF) return true;
 
   const pattern = agenda.recurrencePattern || "DAILY";
   const day = date.getDay(); // 0 = Sunday
 
   if (pattern === "DAILY") return true;
   if (pattern === "WEEKLY") {
-    // Create only on same day of week as startDate
     const startDay = parseLocalIsoDate(agenda.startDate).getDay();
     return day === startDay;
   }
@@ -52,15 +52,15 @@ export const isDateInRecurrence = (date: Date, agenda: Agenda): boolean => {
   return true;
 };
 
-export const DEFAULT_DURATION_DAYS = 30;
-
 export const getDailyTarget = (agenda: Agenda): number => {
   if (agenda.type === AgendaType.NUMERIC) {
     if (agenda.targetVal && agenda.targetVal > 0) {
       return agenda.targetVal;
     }
     if (agenda.totalTarget) {
-      return Math.ceil(agenda.totalTarget / DEFAULT_DURATION_DAYS);
+      return Math.ceil(
+        agenda.totalTarget / APP_CONSTANTS.DEFAULT_DURATION_DAYS
+      );
     }
     return 10; // Default placeholder
   }
@@ -69,16 +69,13 @@ export const getDailyTarget = (agenda: Agenda): number => {
 
 export const createInitialTasks = (
   agenda: Agenda,
-  days: number = 7
+  days: number = APP_CONSTANTS.INITIAL_TASK_GENERATION_DAYS
 ): DailyTask[] => {
   const tasks: DailyTask[] = [];
   const today = new Date();
   const dailyTarget = getDailyTarget(agenda);
 
-  // 1. HANDLE ONE-OFF TASKS
-  // If it's not recurring, we only create ONE task for the specific due date (or today)
   if (agenda.type === AgendaType.ONE_OFF || agenda.isRecurring === false) {
-    // Use agenda.dueDate if available, otherwise default to today
     const taskDate = agenda.due_date
       ? parseLocalIsoDate(agenda.due_date)
       : today;
@@ -96,10 +93,18 @@ export const createInitialTasks = (
     return tasks;
   }
 
-  // 2. HANDLE REGULAR RECURRING HABITS (Existing Logic)
-  for (let i = 0; i < days; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + i);
+  const start = parseLocalIsoDate(agenda.startDate || getTodayDateString());
+
+  let daysToCreate = days;
+  if (agenda.endDate) {
+    const end = parseLocalIsoDate(agenda.endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    daysToCreate = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  for (let i = 0; i < daysToCreate; i++) {
+    const date = new Date(start);
+    date.setDate(start.getDate() + i);
 
     if (isDateInRecurrence(date, agenda)) {
       tasks.push({
@@ -209,4 +214,9 @@ export const recalculateNumericTasks = (
   }
 
   return newTasks;
+};
+
+export const sanitizeMarkdown = (text: string): string => {
+  if (!text) return "";
+  return text.trim().replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "");
 };
