@@ -215,24 +215,47 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
         // Process Agendas
         const newAgendas: Agenda[] = agendas.map(
           (
-            raw: Partial<Agenda> & { startDate?: string; endDate?: string }
-          ) => ({
-            id: generateId(),
-            title: raw.title || "New Goal",
-            type: raw.type as AgendaType,
-            priority: raw.priority,
-            totalTarget: raw.totalTarget,
-            targetVal: raw.targetVal || 1,
-            unit: raw.unit || "check-in",
-            frequency: "daily",
+            raw: Partial<Agenda> & {
+              startDate?: string;
+              endDate?: string;
+              durationDays?: number;
+            }
+          ) => {
+            const startDate = raw.startDate || getTodayDateString();
 
-            // FIX: Use the dates provided by the AI response
-            startDate: raw.startDate || getTodayDateString(),
-            endDate: raw.endDate, // <--- FIX: Capture the AI's calculated end date
+            // Calculate endDate from durationDays if not provided directly
+            let endDate = raw.endDate;
+            if (!endDate && raw.durationDays && raw.durationDays > 0) {
+              const startParts = startDate.split("-").map(Number);
+              const start = new Date(
+                startParts[0],
+                startParts[1] - 1,
+                startParts[2]
+              );
+              start.setDate(start.getDate() + raw.durationDays - 1);
+              const year = start.getFullYear();
+              const month = String(start.getMonth() + 1).padStart(2, "0");
+              const day = String(start.getDate()).padStart(2, "0");
+              endDate = `${year}-${month}-${day}`;
+            }
 
-            bufferTokens: raw.bufferTokens || 0,
-            isRecurring: raw.isRecurring ?? true,
-          })
+            return {
+              id: generateId(),
+              title: raw.title || "New Goal",
+              type: raw.type as AgendaType,
+              priority: raw.priority,
+              totalTarget: raw.totalTarget,
+              targetVal: raw.targetVal || 1,
+              unit: raw.unit || "check-in",
+              frequency: "daily",
+
+              startDate,
+              endDate, // Use calculated or AI-provided endDate
+
+              bufferTokens: raw.bufferTokens || 0,
+              isRecurring: raw.isRecurring ?? true,
+            };
+          }
         );
 
         // Show celebration animation before completing

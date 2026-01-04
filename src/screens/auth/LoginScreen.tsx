@@ -12,6 +12,7 @@ import {
 import { supabase } from "../../api/supabase";
 import { useTheme } from "../../context/ThemeContext";
 import { Fonts } from "../../config/theme";
+import * as Haptics from "expo-haptics";
 
 interface LoginScreenProps {
   onSignup: () => void;
@@ -52,6 +53,7 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
   const handleLogin = async () => {
     if (!email || !password) {
       triggerShake();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Error", "Please enter both email and password.");
       return;
     }
@@ -65,10 +67,14 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
 
       if (error) {
         triggerShake();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert("Login Failed", error.message);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err: any) {
       triggerShake();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Error", err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
@@ -109,6 +115,9 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
+            accessibilityLabel="Email address"
+            accessibilityHint="Enter your email address"
+            autoComplete="email"
           />
         </Animated.View>
 
@@ -135,6 +144,9 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            accessibilityLabel="Password"
+            accessibilityHint="Enter your password"
+            autoComplete="password"
           />
         </Animated.View>
 
@@ -142,6 +154,9 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
           style={[styles.button, { backgroundColor: theme.primary }]}
           onPress={handleLogin}
           disabled={loading}
+          accessibilityLabel="Login button"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: loading }}
         >
           {loading ? (
             <ActivityIndicator color={theme.onPrimary} />

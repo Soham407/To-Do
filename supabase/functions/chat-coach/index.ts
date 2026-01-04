@@ -1,13 +1,34 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+// Allowed origins for CORS - add production domain when deploying
+const allowedOrigins = [
+  "http://localhost:8081",
+  "http://localhost:19006",
+  "exp://localhost:8081",
+  "exp://192.168.", // Local network Expo dev (prefix match)
+  "https://goalcoach.app", // Add your production domain
+];
+
+const getCorsHeaders = (origin: string | null) => {
+  // Check if origin is allowed (exact match or prefix for local network)
+  const isAllowed =
+    origin &&
+    allowedOrigins.some(
+      (allowed) => origin === allowed || origin.startsWith(allowed)
+    );
+
+  return {
+    "Access-Control-Allow-Origin": isAllowed ? origin : allowedOrigins[0],
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+  };
 };
 
 Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -36,7 +57,7 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    // --- RATE LIMITING (20 req/day) ---
+    /* --- RATE LIMITING DISABLED ---
     const { count, error: countError } = await supabase
       .from("ai_usage_logs")
       .select("*", { count: "exact", head: true })
@@ -63,7 +84,7 @@ Deno.serve(async (req: Request) => {
         .from("ai_usage_logs")
         .insert({ user_id: userData.user.id });
     }
-    // --- END RATE LIMITING ---
+    --- END RATE LIMITING --- */
 
     // 2. Fetch Existing Agendas
     const { data: existingAgendas, error: dbError } = await supabase
@@ -128,6 +149,7 @@ Deno.serve(async (req: Request) => {
        - If the goal is clear (e.g., "Gym 30 days"), SKIP motivation questions. Just build it.
        - Only ask "Why" if the input is vague ("I want to get fit").
 
+
     ### JSON OUTPUT STRUCTURE
     Respond ONLY with JSON.
     {
@@ -142,13 +164,23 @@ Deno.serve(async (req: Request) => {
           "targetVal": number, // Daily amount (use 1 for boolean)
           "unit": "string",    // e.g. "pages", "session"
           "isRecurring": true,
-          "startDate": "YYYY-MM-DD", // MUST be today unless user specifies otherwise
-          "endDate": "YYYY-MM-DD", // Optional: Only if duration/total exists
+          "startDate": "YYYY-MM-DD", // MUST be today (${todayISO}) unless user specifies otherwise
+          "endDate": "YYYY-MM-DD", // REQUIRED if duration specified. Calculate: startDate + durationDays
+          "durationDays": number, // REQUIRED if user specifies duration (e.g., "30 days" = 30)
           "reminderTime": "HH:mm", // Optional: "20:00" if user said "8pm"
           "bufferTokens": 3
         }
       ]
     }
+
+    ### CRITICAL DATE CALCULATION EXAMPLES
+    - User: "Gym for 30 days" → startDate="${todayISO}", durationDays=30, endDate="${new Date(
+      Date.parse(todayISO) + 29 * 24 * 60 * 60 * 1000
+    )
+      .toISOString()
+      .substring(0, 10)}" (add 29 days to start)
+    - User: "Read 1000 pages, 20/day" → durationDays=ceil(1000/20)=50, endDate=startDate+49 days
+    - User: "Meditate daily" (no end) → durationDays=null, endDate=null
 
     ### CURRENT USER CONTEXT
     ${memoryContext}

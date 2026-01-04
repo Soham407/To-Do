@@ -25,6 +25,7 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { getLocalDateString } from "../../utils/logic";
 import CalendarModal from "./CalendarModal";
+import * as Haptics from "expo-haptics";
 
 interface QuickAddModalProps {
   isOpen: boolean;
@@ -89,6 +90,9 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
   const handleSave = () => {
     if (!title.trim()) return;
+
+    // Haptic feedback for task creation
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     let finalDate = getLocalDateString();
     if (dateOption === "Tomorrow") {

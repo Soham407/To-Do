@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
 import { DailyTask, Agenda, TaskStatus, AgendaType } from "../../types";
 import { getLocalDateString } from "../../utils/logic";
 import { MD3Theme } from "../../config/theme";
+import * as Haptics from "expo-haptics";
 
 interface TaskCardProps {
   task: DailyTask;
@@ -191,10 +192,29 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   const isOneOff = agenda.type === AgendaType.ONE_OFF;
 
+  // Haptic-enhanced handlers
+  const handleToggle = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onToggleStatus(task);
+  }, [task, onToggleStatus]);
+
+  const handleClick = useCallback(() => {
+    Haptics.selectionAsync();
+    onClick(task);
+  }, [task, onClick]);
+
+  const handleSettingsClick = useCallback(() => {
+    Haptics.selectionAsync();
+    onSettingsClick();
+  }, [onSettingsClick]);
+
   return (
     <TouchableOpacity
-      onPress={() => onClick(task)}
+      onPress={handleClick}
       style={[styles.card, { backgroundColor: cardBg }]}
+      accessibilityLabel={`Task: ${agenda.title}. Status: ${task.status}`}
+      accessibilityRole="button"
+      accessibilityState={{ checked: task.status === TaskStatus.COMPLETED }}
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardLeft}>
@@ -202,9 +222,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <TouchableOpacity
               onPress={(e) => {
                 e.stopPropagation();
-                onToggleStatus(task);
+                handleToggle();
               }}
-              style={{ padding: 4, marginLeft: -4 }}
+              style={{ padding: 12, marginLeft: -8, marginVertical: -8 }}
+              accessibilityLabel={
+                task.status === TaskStatus.COMPLETED
+                  ? "Mark as incomplete"
+                  : "Mark as complete"
+              }
+              accessibilityRole="checkbox"
+              accessibilityState={{
+                checked: task.status === TaskStatus.COMPLETED,
+              }}
             >
               {task.status === TaskStatus.COMPLETED ? (
                 <CheckSquare size={24} color={theme.primary} />
@@ -379,8 +408,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
             />
           )}
           <TouchableOpacity
-            onPress={onSettingsClick}
+            onPress={handleSettingsClick}
             style={styles.settingsBtn}
+            accessibilityLabel="Goal settings"
+            accessibilityRole="button"
           >
             <Settings
               size={18}

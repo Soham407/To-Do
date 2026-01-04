@@ -74,6 +74,13 @@ export const getDashboardStyles = (theme: MD3Theme) =>
       padding: 8,
       marginRight: -8,
     },
+    coachBtn: {
+      padding: 10,
+      backgroundColor: theme.primaryContainer + "40",
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.primary + "30",
+    },
     listContainer: {
       flex: 1,
     },

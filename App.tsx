@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Layout from "./src/components/common/Layout";
@@ -114,6 +114,9 @@ function MainApp() {
   const [isNewUser, setIsNewUser] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
 
+  // Debounce timeout ref for persistence
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Persistence Loading
   useEffect(() => {
     const loadData = async () => {
@@ -121,18 +124,18 @@ function MainApp() {
         const savedAgendas = await AsyncStorage.getItem("agendas");
         const savedTasks = await AsyncStorage.getItem("tasks");
 
+        let loadedAgendas: Agenda[] = [];
         if (savedAgendas) {
-          const parsedAgendas = JSON.parse(savedAgendas);
-          setAgendas(parsedAgendas);
-          if (parsedAgendas.length > 0) setView("dashboard");
+          loadedAgendas = JSON.parse(savedAgendas);
+          setAgendas(loadedAgendas);
+          if (loadedAgendas.length > 0) setView("dashboard");
         }
         if (savedTasks) {
           const parsedTasks = JSON.parse(savedTasks);
           // Sanitize: Remove orphans if agendas exist
-          if (savedAgendas) {
-            const parsedAgendas = JSON.parse(savedAgendas); // Re-parsing for safety in this scope
+          if (loadedAgendas.length > 0) {
             const validAgendaIds = new Set(
-              parsedAgendas.map((a: Agenda) => a.id)
+              loadedAgendas.map((a: Agenda) => a.id)
             );
             const sanitizedTasks = parsedTasks.filter((t: DailyTask) =>
               validAgendaIds.has(t.agendaId)
@@ -151,12 +154,24 @@ function MainApp() {
     loadData();
   }, []);
 
-  // Persistence Saving
+  // Persistence Saving (Debounced for efficiency)
   useEffect(() => {
     if (!loading) {
-      AsyncStorage.setItem("agendas", JSON.stringify(agendas));
-      AsyncStorage.setItem("tasks", JSON.stringify(tasks));
+      // Clear any pending save
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      // Debounce saves by 500ms to prevent excessive writes
+      saveTimeoutRef.current = setTimeout(() => {
+        AsyncStorage.setItem("agendas", JSON.stringify(agendas));
+        AsyncStorage.setItem("tasks", JSON.stringify(tasks));
+      }, 500);
     }
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [agendas, tasks, loading]);
 
   // Migration Trigger
@@ -274,11 +289,27 @@ function MainApp() {
     }
 
     setTasks(newTasks);
+
+    // Check for streak milestones and send celebration notification
+    if (updatedTask.status === "COMPLETED") {
+      NotificationService.checkStreakMilestones(
+        newTasks,
+        updatedTask.agendaId
+      ).catch((err) => console.log("Streak check skipped:", err));
+    }
   };
 
-  // Initialize Notifications
+  // Initialize Notifications (including smart coaching nudges)
   useEffect(() => {
-    NotificationService.registerForPushNotificationsAsync();
+    const setupNotifications = async () => {
+      await NotificationService.registerForPushNotificationsAsync();
+      // Set up smart coaching notifications (morning motivation at 8am, evening reminder at 8pm)
+      await NotificationService.setupSmartNotifications({
+        morningMotivation: true,
+        eveningReminder: true,
+      });
+    };
+    setupNotifications();
   }, []);
 
   const handleUpdateAgenda = (id: string, updates: Partial<Agenda>) => {

@@ -22,6 +22,7 @@ import { X, Check, Plus, Trash, Edit3, Eye } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
 import { generateId, sanitizeMarkdown } from "../../utils/logic";
 import { MD3Theme } from "../../config/theme";
+import * as Haptics from "expo-haptics";
 
 interface Props {
   isOpen: boolean;
@@ -122,6 +123,15 @@ const CheckInModal: React.FC<Props> = ({
       subtasks: subtasks,
       note: sanitizeMarkdown(note),
     };
+
+    // Haptic feedback based on completion status
+    if (status === TaskStatus.COMPLETED) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else if (status === TaskStatus.FAILED) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
 
     onUpdateTask(
       updatedTask,

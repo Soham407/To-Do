@@ -97,10 +97,16 @@ export const createInitialTasks = (
 
   let daysToCreate = days;
   if (agenda.endDate) {
+    // Primary: Use endDate if provided by AI
     const end = parseLocalIsoDate(agenda.endDate);
     const diffTime = Math.abs(end.getTime() - start.getTime());
     daysToCreate = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  } else if (agenda.totalTarget && agenda.targetVal && agenda.targetVal > 0) {
+    // Fallback: Calculate from totalTarget/targetVal (e.g., 1000 pages / 20 per day = 50 days)
+    daysToCreate = Math.ceil(agenda.totalTarget / agenda.targetVal);
   }
+  // Note: If no endDate/totalTarget, we use the default INITIAL_TASK_GENERATION_DAYS (7)
+  // The AI should now provide durationDays which frontend converts to endDate
 
   for (let i = 0; i < daysToCreate; i++) {
     const date = new Date(start);
