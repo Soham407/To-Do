@@ -132,7 +132,8 @@ export const getDashboardStyles = (theme: MD3Theme) =>
       marginTop: 2,
     },
     settingsBtn: {
-      padding: 8,
+      padding: 12, // 44px touch target
+      margin: -4, // Visual compensation
     },
     textLineThrough: {
       textDecorationLine: "line-through",

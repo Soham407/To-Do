@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   Switch,
   ScrollView,
-  Image,
   Alert,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../api/supabase";
+import { NotificationService } from "../../api/NotificationService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   X,
   User,
@@ -32,6 +33,24 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
+
+  // Load notification preference on mount
+  React.useEffect(() => {
+    const loadPref = async () => {
+      const pref = await AsyncStorage.getItem("notifications_enabled");
+      setNotificationsEnabled(pref !== "false");
+    };
+    if (isOpen) loadPref();
+  }, [isOpen]);
+
+  const handleNotificationToggle = async (value: boolean) => {
+    setNotificationsEnabled(value);
+    await AsyncStorage.setItem("notifications_enabled", value.toString());
+    await NotificationService.setupSmartNotifications({
+      morningMotivation: value,
+      eveningReminder: value,
+    });
+  };
 
   const handleLogout = async () => {
     try {
@@ -63,7 +82,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Profile</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                accessibilityLabel="Close profile modal"
+                accessibilityRole="button"
+              >
                 <X size={24} color={theme.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
@@ -95,12 +119,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               </View>
               <Switch
                 value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
+                onValueChange={handleNotificationToggle}
                 trackColor={{
                   false: theme.surfaceVariant,
                   true: theme.primary,
                 }}
                 thumbColor={theme.surface}
+                accessibilityLabel="Toggle notifications"
+                accessibilityRole="switch"
+                accessibilityState={{ checked: notificationsEnabled }}
               />
             </View>
 
@@ -117,6 +144,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   true: theme.primary,
                 }}
                 thumbColor={theme.surface}
+                accessibilityLabel="Toggle dark mode"
+                accessibilityRole="switch"
+                accessibilityState={{ checked: isDark }}
               />
             </View>
 
@@ -147,10 +177,11 @@ const getStyles = (theme: any) =>
       backgroundColor: "rgba(0,0,0,0.5)",
     },
     modalView: {
-      width: "85%",
+      width: "90%",
+      maxWidth: 400,
       backgroundColor: theme.surface,
       borderRadius: 28,
-      padding: 24,
+      padding: 20,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,

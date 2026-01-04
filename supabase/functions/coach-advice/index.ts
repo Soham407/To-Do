@@ -83,8 +83,8 @@ Deno.serve(async (req: Request) => {
           }
         : null;
 
-    // Initialize Supabase Client
-    const supabase = createClient(
+    // Initialize Supabase Client for USER AUTH (anon key with user's JWT)
+    const authClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       {
@@ -93,6 +93,52 @@ Deno.serve(async (req: Request) => {
         },
       }
     );
+
+    // Initialize Supabase Client for SERVICE operations (rate limit logging)
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // 1. Get User from Session (using anon key + user JWT)
+    const {
+      data: { user },
+      error: authError,
+    } = await authClient.auth.getUser();
+
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Check Rate Limit (10 requests per 24 hours)
+    const twentyFourHoursAgo = new Date(
+      Date.now() - 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const { count, error: countError } = await serviceClient
+      .from("ai_usage_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", twentyFourHoursAgo);
+
+    if (countError) {
+      console.error("Rate limit check error:", countError);
+    } else if (count !== null && count >= 10) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Daily wisdom limit reached. Take a breath and focus on your tasks! 💙",
+          isRateLimited: true,
+        }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     // Get today's date
     const today = new Date();
@@ -199,12 +245,15 @@ Deno.serve(async (req: Request) => {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
 
-    const modelName = "gemini-2.5-flash";
+    const modelName = "gemini-1.5-flash";
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey, // SECURITY: Pass key in header, not URL
+        },
         body: JSON.stringify({
           contents: geminiContents,
           systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -214,7 +263,8 @@ Deno.serve(async (req: Request) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Gemini API Error: ${errorText}`);
+      console.error("Gemini API Error Detail:", errorText);
+      throw new Error(`AI processing failed.`);
     }
 
     const data = await response.json();
@@ -222,12 +272,23 @@ Deno.serve(async (req: Request) => {
 
     if (!textResult) throw new Error("Empty response from AI");
 
+    // 3. Log Success Usage
+    const { error: logError } = await serviceClient
+      .from("ai_usage_logs")
+      .insert({ user_id: user.id });
+
+    if (logError) console.error("Failed to log usage:", logError);
+
     return new Response(JSON.stringify({ message: textResult }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
     console.error("Critical Error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const clientError = error.message.includes("AI processing")
+      ? error.message
+      : "I'm having trouble thinking right now. Please try again later! 💙";
+
+    return new Response(JSON.stringify({ error: clientError }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

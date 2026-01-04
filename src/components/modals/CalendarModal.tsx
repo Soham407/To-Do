@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useTheme } from "../../context/ThemeContext";
+import { MD3Theme } from "../../config/theme";
 import { X } from "lucide-react-native";
 
 interface CalendarModalProps {
@@ -88,7 +89,7 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
   );
 };
 
-const getStyles = (theme: any) =>
+const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     centeredView: {
       flex: 1,

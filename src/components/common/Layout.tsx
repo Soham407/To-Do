@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LayoutDashboard, Target, PieChart } from "lucide-react-native";
 import { useTheme } from "../../context/ThemeContext";
+import { MD3Theme } from "../../config/theme";
 
 interface LayoutProps {
   children: ReactNode;
@@ -41,6 +42,9 @@ const Layout: React.FC<LayoutProps> = ({
             <TouchableOpacity
               onPress={() => onTabChange("dashboard")}
               style={styles.navButton}
+              accessibilityLabel="Dashboard tab"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === "dashboard" }}
             >
               {activeTab === "dashboard" && <View style={styles.activePill} />}
               <LayoutDashboard
@@ -54,6 +58,9 @@ const Layout: React.FC<LayoutProps> = ({
             <TouchableOpacity
               onPress={() => onTabChange("onboarding")}
               style={styles.navButton}
+              accessibilityLabel="Create new goal tab"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === "onboarding" }}
             >
               {activeTab === "onboarding" && <View style={styles.activePill} />}
               <Target
@@ -67,6 +74,9 @@ const Layout: React.FC<LayoutProps> = ({
             <TouchableOpacity
               onPress={() => onTabChange("report")}
               style={styles.navButton}
+              accessibilityLabel="Insights and reports tab"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === "report" }}
             >
               {activeTab === "report" && <View style={styles.activePill} />}
               <PieChart
@@ -82,7 +92,7 @@ const Layout: React.FC<LayoutProps> = ({
   );
 };
 
-const getStyles = (theme: any) =>
+const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -117,8 +127,9 @@ const getStyles = (theme: any) =>
     navButton: {
       alignItems: "center",
       justifyContent: "center",
-      width: 64,
-      height: 48,
+      width: 56,
+      height: 56,
+      minHeight: 48,
     },
     activePill: {
       position: "absolute",

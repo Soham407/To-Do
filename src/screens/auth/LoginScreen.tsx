@@ -8,11 +8,13 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Image,
 } from "react-native";
 import { supabase } from "../../api/supabase";
 import { useTheme } from "../../context/ThemeContext";
 import { Fonts } from "../../config/theme";
 import * as Haptics from "expo-haptics";
+import { MaterialSpinner } from "../../components/common/MaterialSpinner";
 
 interface LoginScreenProps {
   onSignup: () => void;
@@ -44,7 +46,7 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
       }),
       Animated.timing(shakeAnim, {
         toValue: 0,
-        duration: 50,
+        duration: 47,
         useNativeDriver: true,
       }),
     ]).start();
@@ -84,6 +86,13 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.content}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("../../../assets/adaptive-icon.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
         <Text style={[styles.title, { color: theme.onBackground }]}>
           Welcome Back
         </Text>
@@ -159,7 +168,7 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
           accessibilityState={{ disabled: loading }}
         >
           {loading ? (
-            <ActivityIndicator color={theme.onPrimary} />
+            <MaterialSpinner color={theme.onPrimary} size={24} />
           ) : (
             <Text style={[styles.buttonText, { color: theme.onPrimary }]}>
               Login
@@ -234,5 +243,13 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: 14,
     fontFamily: Fonts.regular,
+  },
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  logo: {
+    width: 80,
+    height: 80,
   },
 });

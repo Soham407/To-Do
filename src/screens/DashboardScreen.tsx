@@ -15,23 +15,36 @@ import {
   Calendar as CalendarIcon,
   Sparkles,
   UserCircle,
-  List,
+  List as ListIcon,
   KanbanSquare,
   Plus,
   MessageCircle,
+  Zap,
+  FolderOpen,
 } from "lucide-react-native";
-import { Agenda, DailyTask, TaskStatus, Priority } from "../types";
+import {
+  Agenda,
+  DailyTask,
+  TaskStatus,
+  Priority,
+  List,
+  DEFAULT_LISTS,
+} from "../types";
 import CheckInModal from "../components/modals/CheckInModal";
 import CalendarModal from "../components/modals/CalendarModal";
 import GoalSettingsModal from "../components/modals/GoalSettingsModal";
 import ProfileModal from "../components/modals/ProfileModal";
 import QuickAddModal from "../components/modals/QuickAddModal";
 import CoachChatModal from "../components/modals/CoachChatModal";
+import GoalTemplatesModal from "../components/modals/GoalTemplatesModal";
 import { getLocalDateString, parseLocalIsoDate } from "../utils/logic";
 import { useTheme } from "../context/ThemeContext";
 import { calculateStreak, StreakInfo } from "../utils/insightsLogic";
 import { getDashboardStyles } from "../components/dashboard/DashboardStyles";
 import TaskCard from "../components/dashboard/TaskCard";
+import ProgressOverview from "../components/dashboard/ProgressOverview";
+import ListsFilterBar from "../components/dashboard/ListsFilterBar";
+import ListsModal from "../components/modals/ListsModal";
 
 interface DashboardProps {
   agendas: Agenda[];
@@ -46,6 +59,9 @@ interface DashboardProps {
   onDeleteAgenda: (id: string) => void;
   isNewUser?: boolean;
   onCreateTask: (title: string, dueDate: string, priority: Priority) => void;
+  onCreateGoal: (agenda: Agenda) => void;
+  lists: List[];
+  onUpdateLists: (lists: List[]) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -56,6 +72,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   onUpdateAgenda,
   onDeleteAgenda,
   onCreateTask,
+  onCreateGoal,
+  lists,
+  onUpdateLists,
 }) => {
   const { theme } = useTheme();
   const styles = useMemo(() => getDashboardStyles(theme), [theme]);
@@ -63,6 +82,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [selectedAgenda, setSelectedAgenda] = useState<Agenda | null>(null);
   const [settingsAgenda, setSettingsAgenda] = useState<Agenda | null>(null);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isListsOpen, setIsListsOpen] = useState(false);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(
     getLocalDateString()
   );
@@ -123,8 +145,18 @@ const Dashboard: React.FC<DashboardProps> = ({
     if (searchText.trim()) {
       const lower = searchText.toLowerCase();
       filtered = filtered.filter((t) => {
-        const ag = agendas.find((a) => a.id === t.agendaId);
-        return ag?.title.toLowerCase().includes(lower);
+        const ag = agendaMap.get(t.agendaId);
+        const agendaMatch = ag?.title.toLowerCase().includes(lower);
+        const noteMatch = t.note?.toLowerCase().includes(lower);
+        return agendaMatch || noteMatch;
+      });
+    }
+
+    // Filter by selected list
+    if (selectedListId) {
+      filtered = filtered.filter((t) => {
+        const ag = agendaMap.get(t.agendaId);
+        return ag?.listId === selectedListId;
       });
     }
 
@@ -145,7 +177,26 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       return a.scheduledDate.localeCompare(b.scheduledDate);
     });
-  }, [tasks, selectedDate, agendas, searchText, activeFilter, agendaMap]);
+  }, [
+    tasks,
+    selectedDate,
+    agendas,
+    searchText,
+    activeFilter,
+    agendaMap,
+    selectedListId,
+  ]);
+
+  // Compute goal counts per list
+  const goalCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    agendas.forEach((a) => {
+      if (a.listId) {
+        counts[a.listId] = (counts[a.listId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [agendas]);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -220,14 +271,46 @@ const Dashboard: React.FC<DashboardProps> = ({
           </TouchableOpacity>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <TouchableOpacity
+              onPress={() => setIsTemplatesOpen(true)}
+              style={[
+                styles.coachBtn,
+                {
+                  backgroundColor: theme.secondaryContainer + "40",
+                  borderColor: theme.secondary + "30",
+                },
+              ]}
+              accessibilityLabel="Quick start templates"
+              accessibilityRole="button"
+            >
+              <Zap size={20} color={theme.secondary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsListsOpen(true)}
+              style={[
+                styles.coachBtn,
+                {
+                  backgroundColor: theme.tertiaryContainer + "40",
+                  borderColor: theme.tertiary + "30",
+                },
+              ]}
+              accessibilityLabel="Manage lists"
+              accessibilityRole="button"
+            >
+              <FolderOpen size={20} color={theme.tertiary} />
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() => setIsCoachChatOpen(true)}
               style={styles.coachBtn}
+              accessibilityLabel="AI Coach"
+              accessibilityRole="button"
             >
               <Sparkles size={22} color={theme.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setIsProfileOpen(true)}
               style={styles.profileBtn}
+              accessibilityLabel="Profile settings"
+              accessibilityRole="button"
             >
               <UserCircle size={32} color={theme.onSurfaceVariant} />
             </TouchableOpacity>
@@ -279,14 +362,33 @@ const Dashboard: React.FC<DashboardProps> = ({
           <TouchableOpacity
             style={styles.viewToggleBtn}
             onPress={() => setViewMode(viewMode === "LIST" ? "BOARD" : "LIST")}
+            accessibilityLabel={
+              viewMode === "LIST"
+                ? "Switch to board view"
+                : "Switch to list view"
+            }
           >
             {viewMode === "LIST" ? (
               <KanbanSquare size={20} color={theme.onSurfaceVariant} />
             ) : (
-              <List size={20} color={theme.onSurfaceVariant} />
+              <ListIcon size={20} color={theme.onSurfaceVariant} />
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Progress Overview - Only show on Today filter */}
+        {activeFilter === "Today" && (
+          <ProgressOverview tasks={tasks} agendas={agendas} theme={theme} />
+        )}
+
+        {/* Lists Filter Bar */}
+        <ListsFilterBar
+          lists={lists}
+          selectedListId={selectedListId}
+          onSelectList={setSelectedListId}
+          theme={theme}
+          goalCounts={goalCounts}
+        />
       </View>
 
       <View style={styles.listContainer}>
@@ -516,6 +618,17 @@ const Dashboard: React.FC<DashboardProps> = ({
         onClose={() => setIsCoachChatOpen(false)}
         tasks={tasks}
         agendas={agendas}
+      />
+      <GoalTemplatesModal
+        isOpen={isTemplatesOpen}
+        onClose={() => setIsTemplatesOpen(false)}
+        onCreateGoal={onCreateGoal}
+      />
+      <ListsModal
+        isOpen={isListsOpen}
+        onClose={() => setIsListsOpen(false)}
+        lists={lists}
+        onUpdateLists={onUpdateLists}
       />
 
       <Animated.View

@@ -13,12 +13,32 @@ const isValidUUID = (uuid: string) => {
 };
 
 export const migrateLocalDataToSupabase = async () => {
+  // Check if migration already completed
+  const migrationDone = await AsyncStorage.getItem(MIGRATION_KEY);
+  if (migrationDone === "true") {
+    console.log("Migration already completed, skipping.");
+    return;
+  }
+
   // 1. Get current user
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
     console.log("No user logged in, skipping migration.");
+    return;
+  }
+
+  // PRE-CHECK: If cloud already has data, user might have migrated on another device.
+  // We should skip migration to avoid creating duplicates or overwriting with older local data.
+  const { count, error: countError } = await supabase
+    .from("agendas")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  if (!countError && count !== null && count > 0) {
+    console.log("Cloud data already exists, skipping local migration.");
+    await AsyncStorage.setItem(MIGRATION_KEY, "true");
     return;
   }
 
@@ -195,5 +215,7 @@ export const migrateLocalDataToSupabase = async () => {
     }
   }
 
+  // Mark migration as complete
+  await AsyncStorage.setItem(MIGRATION_KEY, "true");
   console.log("Migration completed successfully.");
 };

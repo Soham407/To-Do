@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
+import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Layout from "./src/components/common/Layout";
 import DashboardScreen from "./src/screens/DashboardScreen";
 import OnboardingChat from "./src/components/onboarding/OnboardingChat";
 import ReportScreen from "./src/screens/ReportScreen";
-import { Agenda, DailyTask, AgendaType, Priority } from "./src/types";
+import {
+  Agenda,
+  DailyTask,
+  AgendaType,
+  Priority,
+  List,
+  DEFAULT_LISTS,
+} from "./src/types";
 import { ThemeProvider } from "./src/context/ThemeContext";
 import {
   createInitialTasks,
@@ -22,6 +30,7 @@ import { NotificationService } from "./src/api/NotificationService"; // Import S
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import SignupScreen from "./src/screens/auth/SignupScreen";
+import { syncWithCloud } from "./src/utils/sync";
 
 // Custom Fonts
 import {
@@ -63,6 +72,9 @@ class ErrorBoundary extends React.Component<
               onUpdateAgenda={() => {}}
               onDeleteAgenda={() => {}}
               onCreateTask={() => {}}
+              onCreateGoal={() => {}}
+              lists={[]}
+              onUpdateLists={() => {}}
             />
           </Layout>
         </SafeAreaProvider>
@@ -107,12 +119,14 @@ function MainApp() {
   const { session, loading: authLoading } = useAuth();
   const [agendas, setAgendas] = useState<Agenda[]>([]);
   const [tasks, setTasks] = useState<DailyTask[]>([]);
+  const [lists, setLists] = useState<List[]>(DEFAULT_LISTS);
   const [view, setView] = useState<"dashboard" | "onboarding" | "report">(
     "onboarding"
   );
   const [loading, setLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Debounce timeout ref for persistence
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -123,6 +137,7 @@ function MainApp() {
       try {
         const savedAgendas = await AsyncStorage.getItem("agendas");
         const savedTasks = await AsyncStorage.getItem("tasks");
+        const savedLists = await AsyncStorage.getItem("lists");
 
         let loadedAgendas: Agenda[] = [];
         if (savedAgendas) {
@@ -145,6 +160,9 @@ function MainApp() {
             setTasks(parsedTasks);
           }
         }
+        if (savedLists) {
+          setLists(JSON.parse(savedLists));
+        }
       } catch (e) {
         console.error("Failed to load storage", e);
       } finally {
@@ -165,6 +183,7 @@ function MainApp() {
       saveTimeoutRef.current = setTimeout(() => {
         AsyncStorage.setItem("agendas", JSON.stringify(agendas));
         AsyncStorage.setItem("tasks", JSON.stringify(tasks));
+        AsyncStorage.setItem("lists", JSON.stringify(lists));
       }, 500);
     }
     return () => {
@@ -172,55 +191,66 @@ function MainApp() {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [agendas, tasks, loading]);
+  }, [agendas, tasks, lists, loading]);
 
-  // Migration Trigger
-  const migrationGuard = React.useRef(false);
+  // Data Initialization Flow Strategy:
+  // 1. Load Local Data (already handled in loadData effect)
+  // 2. IF Session exists, set backup of local data
+  // 3. Run Migration (Local -> Cloud)
+  // 4. Run Sync (Cloud -> Local with MERGE)
+  const [isMigrationComplete, setIsMigrationComplete] = useState(false);
+  const lastInitializedUser = useRef<string | null>(null);
 
   useEffect(() => {
-    const runMigration = async () => {
-      if (session?.user && !migrationGuard.current) {
-        const userMigrationKey = `otp_migration_complete_${session.user.id}`;
+    const initializeCloudData = async () => {
+      // Don't run until session is ready, local load is done, and we haven't already init'd THIS user
+      if (
+        !session?.user ||
+        loading ||
+        lastInitializedUser.current === session.user.id
+      )
+        return;
 
-        // Set in-memory guard immediately to prevent race conditions
-        migrationGuard.current = true;
+      lastInitializedUser.current = session.user.id;
+      setIsSyncing(true);
 
-        try {
-          // Check persistent flag
-          const isMigrated = await AsyncStorage.getItem(userMigrationKey);
-          if (isMigrated === "true") return;
+      try {
+        console.log("🚀 Starting Cloud Data Initialization...");
 
-          const isInProgress = await AsyncStorage.getItem(
-            `migration_in_progress_${session.user.id}`
-          );
-          if (isInProgress === "true") return;
-
-          await AsyncStorage.setItem(
-            `migration_in_progress_${session.user.id}`,
-            "true"
-          );
-
-          // Run migration
-          await migrateLocalDataToSupabase();
-
-          // Set persistent flag on success
-          await AsyncStorage.setItem(userMigrationKey, "true");
-          await AsyncStorage.removeItem(
-            `migration_in_progress_${session.user.id}`
-          );
-        } catch (e) {
-          console.error("Migration failed, allowing retry:", e);
-          await AsyncStorage.removeItem(
-            `migration_in_progress_${session.user.id}`
-          );
-          // Reset guard to allow retry on next mount/session change
-          migrationGuard.current = false;
+        // 1. Create a safety backup if it doesn't exist
+        const hasBackup = await AsyncStorage.getItem("agendas_backup");
+        if (!hasBackup && agendas.length > 0) {
+          console.log("📦 Creating safety backup of local data...");
+          await AsyncStorage.setItem("agendas_backup", JSON.stringify(agendas));
+          await AsyncStorage.setItem("tasks_backup", JSON.stringify(tasks));
         }
+
+        // 2. Run Migration
+        const userMigrationKey = `otp_migration_complete_${session.user.id}`;
+        const isMigrated = await AsyncStorage.getItem(userMigrationKey);
+
+        if (isMigrated !== "true") {
+          console.log("➡️ Running Migration...");
+          await migrateLocalDataToSupabase();
+          await AsyncStorage.setItem(userMigrationKey, "true");
+        }
+
+        setIsMigrationComplete(true);
+
+        // 3. Run Sync (Cloud -> Local with MERGE)
+        console.log("🔄 Running Sync...");
+        await syncWithCloud(agendas, tasks, setAgendas, setTasks);
+
+        console.log("✅ Cloud Data Initialization Complete.");
+      } catch (error) {
+        console.error("❌ Data Initialization failed:", error);
+      } finally {
+        setIsSyncing(false);
       }
     };
 
-    runMigration();
-  }, [session]);
+    initializeCloudData();
+  }, [session, loading]); // Run when session becomes available after local load
 
   // Logic Hardening
   useEffect(() => {
@@ -385,6 +415,19 @@ function MainApp() {
 
   if (loading || authLoading) return null; // Or splash screen
 
+  // Show syncing indicator
+  if (isSyncing) {
+    return (
+      <SafeAreaProvider>
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
   if (!session) {
     if (showSignup) {
       return (
@@ -424,6 +467,9 @@ function MainApp() {
             onDeleteAgenda={handleDeleteAgenda}
             isNewUser={isNewUser}
             onCreateTask={handleCreateTask}
+            onCreateGoal={handleAgendaCreated}
+            lists={lists}
+            onUpdateLists={setLists}
           />
         );
       case "report":

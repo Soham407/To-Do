@@ -13,6 +13,7 @@ import {
   UIManager,
   Animated,
   Dimensions,
+  Image,
 } from "react-native";
 import {
   X,
@@ -88,6 +89,13 @@ const AnimatedMessageBubble = ({
         },
       ]}
     >
+      {!isUser && (
+        <Image
+          source={require("../../../assets/adaptive-icon.png")}
+          style={styles.avatar}
+          resizeMode="contain"
+        />
+      )}
       <View
         style={[
           styles.bubble,
@@ -349,10 +357,19 @@ const CoachChatModal: React.FC<Props> = ({
         },
       });
 
-      if (error) throw error;
-
       setIsTyping(false);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+      // Handle rate limit response (no retry)
+      if (data?.isRateLimited) {
+        setMessages((prev) => [
+          ...prev,
+          { id: generateId(), text: data.error, sender: "bot" },
+        ]);
+        return;
+      }
+
+      if (error) throw error;
 
       if (data?.message) {
         setMessages((prev) => [
@@ -562,9 +579,17 @@ const getStyles = (theme: MD3Theme) =>
     },
     alignLeft: {
       alignItems: "flex-start",
+      flexDirection: "row", // Enable row layout for avatar + bubble
     },
     alignRight: {
       alignItems: "flex-end",
+    },
+    avatar: {
+      width: 32,
+      height: 32,
+      marginRight: 8,
+      borderRadius: 16,
+      backgroundColor: theme.surfaceContainer,
     },
     bubble: {
       maxWidth: "85%",

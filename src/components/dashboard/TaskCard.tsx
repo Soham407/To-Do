@@ -70,9 +70,14 @@ const NumericProgressBar: React.FC<{
   );
 };
 
-const StreakFlame: React.FC<{ streak: number }> = ({ streak }) => {
+const StreakFlame: React.FC<{ streak: number; theme: MD3Theme }> = ({
+  streak,
+  theme,
+}) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0.2)).current;
+  const warningColor = theme.warning ?? "#FFC107";
+  const warningTextColor = theme.warningText ?? "#FF9800";
 
   useEffect(() => {
     if (streak >= 7) {
@@ -115,19 +120,20 @@ const StreakFlame: React.FC<{ streak: number }> = ({ streak }) => {
         alignItems: "center",
         backgroundColor: glowAnim.interpolate({
           inputRange: [0.2, 0.5],
-          outputRange: ["#FFC10720", "#FFC10740"],
+          outputRange: [`${warningColor}20`, `${warningColor}40`],
         }),
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: 100,
         transform: [{ scale: pulseAnim }],
       }}
+      accessibilityLabel={`${streak} day streak`}
     >
-      <Flame size={10} color="#FFC107" fill="#FFC107" />
+      <Flame size={10} color={warningColor} fill={warningColor} />
       <Text
         style={{
           fontSize: 10,
-          color: "#FF9800",
+          color: warningTextColor,
           fontWeight: "bold",
           marginLeft: 2,
         }}
@@ -275,7 +281,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 {agenda.title}
               </Text>
               {streak !== undefined && streak > 2 && (
-                <StreakFlame streak={streak} />
+                <StreakFlame streak={streak} theme={theme} />
               )}
             </View>
             <Text style={styles.cardSubtitle}>
@@ -376,28 +382,46 @@ const TaskCard: React.FC<TaskCardProps> = ({
           {agenda.priority === "HIGH" && (
             <View
               style={{
-                width: 8,
-                height: 8,
+                backgroundColor: theme.errorContainer,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
                 borderRadius: 4,
-                backgroundColor: theme.error,
                 position: "absolute",
-                top: 4,
+                top: 0,
                 right: 32,
               }}
-            />
+              accessibilityLabel="High priority"
+            >
+              <Text
+                style={{ fontSize: 8, fontWeight: "bold", color: theme.error }}
+              >
+                !
+              </Text>
+            </View>
           )}
           {agenda.priority === "LOW" && (
             <View
               style={{
-                width: 8,
-                height: 8,
+                backgroundColor: theme.tertiaryContainer,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
                 borderRadius: 4,
-                backgroundColor: theme.tertiary,
                 position: "absolute",
-                top: 4,
+                top: 0,
                 right: 32,
               }}
-            />
+              accessibilityLabel="Low priority"
+            >
+              <Text
+                style={{
+                  fontSize: 8,
+                  fontWeight: "bold",
+                  color: theme.tertiary,
+                }}
+              >
+                ○
+              </Text>
+            </View>
           )}
 
           {task.status === TaskStatus.PENDING && (

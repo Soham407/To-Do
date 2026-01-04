@@ -24,6 +24,7 @@ import {
 } from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { getLocalDateString } from "../../utils/logic";
+import { Fonts, MD3Theme } from "../../config/theme";
 import CalendarModal from "./CalendarModal";
 import * as Haptics from "expo-haptics";
 
@@ -169,7 +170,12 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
         >
           <View style={styles.header}>
             <Text style={styles.title}>New Task</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              accessibilityLabel="Close modal"
+              accessibilityRole="button"
+            >
               <X size={24} color={theme.onSurfaceVariant} />
             </TouchableOpacity>
           </View>
@@ -199,6 +205,9 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
                     },
                   ]}
                   onPress={() => setDateOption("Today")}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: dateOption === "Today" }}
+                  accessibilityLabel="Set due date to today"
                 >
                   <Text
                     style={[
@@ -220,6 +229,9 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
                     },
                   ]}
                   onPress={() => setDateOption("Tomorrow")}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: dateOption === "Tomorrow" }}
+                  accessibilityLabel="Set due date to tomorrow"
                 >
                   <Text
                     style={[
@@ -421,7 +433,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
   );
 };
 
-const getStyles = (theme: any) =>
+const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     overlay: {
       flex: 1,
@@ -452,7 +464,7 @@ const getStyles = (theme: any) =>
     },
     title: {
       fontSize: 22,
-      fontWeight: "400",
+      fontFamily: Fonts.medium,
       color: theme.onSurface,
     },
     closeBtn: {

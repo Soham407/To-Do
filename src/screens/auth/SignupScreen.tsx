@@ -11,6 +11,7 @@ import {
 import { supabase } from "../../api/supabase";
 import { useTheme } from "../../context/ThemeContext";
 import { Fonts } from "../../config/theme";
+import { MaterialSpinner } from "../../components/common/MaterialSpinner";
 
 interface SignupScreenProps {
   onLogin: () => void;
@@ -101,7 +102,7 @@ export default function SignupScreen({ onLogin }: SignupScreenProps) {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={theme.onPrimary} />
+            <MaterialSpinner color={theme.onPrimary} size={24} />
           ) : (
             <Text style={[styles.buttonText, { color: theme.onPrimary }]}>
               Sign Up

@@ -133,21 +133,74 @@ export const NotificationService = {
       const hour = triggerDate.getHours();
       const minute = triggerDate.getMinutes();
 
-      await Notifications.scheduleNotificationAsync({
-        identifier: agenda.id,
-        content: {
-          title: "🎯 Goal Reminder: " + agenda.title,
-          body: `Time to hit your target of ${agenda.targetVal} ${
-            agenda.unit || "units"
-          }!`,
-          data: { agendaId: agenda.id, type: "goal_reminder" },
-        },
-        trigger: {
-          hour,
-          minute,
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        },
-      });
+      // For WEEKDAYS or CUSTOM, we might need more complex logic,
+      // but for now let's fix the basic daily vs specific day issue.
+      if (
+        agenda.recurrencePattern === "WEEKLY" &&
+        agenda.recurrenceDays &&
+        agenda.recurrenceDays.length > 0
+      ) {
+        // Expo needs one notification per weekday.
+        // For this fix, we'll schedule for the first selected day or default to daily if logic gets too complex for the current service structure.
+        // A better fix would be a loop, but let's at least avoid the "Daily for everything" trap.
+        await Promise.all(
+          agenda.recurrenceDays.map((day) =>
+            Notifications.scheduleNotificationAsync({
+              identifier: `${agenda.id}_${day}`,
+              content: {
+                title: "🎯 Goal Reminder: " + agenda.title,
+                body: `Time to hit your target of ${agenda.targetVal} ${
+                  agenda.unit || "units"
+                }!`,
+                data: { agendaId: agenda.id, type: "goal_reminder" },
+              },
+              trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+                weekday: (day % 7) + 1, // Expo uses 1-7 (Sunday-Saturday)
+                hour,
+                minute,
+              },
+            })
+          )
+        );
+      } else if (agenda.recurrencePattern === "WEEKDAYS") {
+        await Promise.all(
+          [2, 3, 4, 5, 6].map((day) =>
+            Notifications.scheduleNotificationAsync({
+              identifier: `${agenda.id}_${day}`,
+              content: {
+                title: "🎯 Goal Reminder: " + agenda.title,
+                body: `Time to hit your target of ${agenda.targetVal} ${
+                  agenda.unit || "units"
+                }!`,
+                data: { agendaId: agenda.id, type: "goal_reminder" },
+              },
+              trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+                weekday: day,
+                hour,
+                minute,
+              },
+            })
+          )
+        );
+      } else {
+        await Notifications.scheduleNotificationAsync({
+          identifier: agenda.id,
+          content: {
+            title: "🎯 Goal Reminder: " + agenda.title,
+            body: `Time to hit your target of ${agenda.targetVal} ${
+              agenda.unit || "units"
+            }!`,
+            data: { agendaId: agenda.id, type: "goal_reminder" },
+          },
+          trigger: {
+            hour,
+            minute,
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          },
+        });
+      }
     }
   },
 

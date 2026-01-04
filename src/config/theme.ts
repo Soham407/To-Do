@@ -46,6 +46,11 @@ export const MD3LightTheme = {
   bufferBorder: "#FFC107", // Amber 500
   onBuffer: "#4E342E", // Amber 900
   onBufferVariant: "#8D6E63", // Brown 400
+
+  // Warning Tokens (for streaks, alerts)
+  warning: "#FFC107",
+  warningText: "#FF9800",
+  warningContainer: "#FFF8E1",
 };
 
 export const MD3DarkTheme = {
@@ -93,6 +98,11 @@ export const MD3DarkTheme = {
   bufferBorder: "#FFC107", // Amber 500
   onBuffer: "#FFF8E1", // Light Amber Text
   onBufferVariant: "#D7CCC8", // Light Brown
+
+  // Warning Tokens (for streaks, alerts)
+  warning: "#FFD54F",
+  warningText: "#FFB74D",
+  warningContainer: "#3E2723",
 };
 
 export type MD3Theme = typeof MD3LightTheme;

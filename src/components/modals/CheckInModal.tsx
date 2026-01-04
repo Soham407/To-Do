@@ -199,6 +199,9 @@ const CheckInModal: React.FC<Props> = ({
                   },
                 ]}
                 onPress={() => setSelectedTag(tag)}
+                accessibilityLabel={`${tag}${isSelected ? ", selected" : ""}`}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
               >
                 {isSelected && (
                   <Check size={14} color={theme.onSecondaryContainer} />
@@ -236,6 +239,9 @@ const CheckInModal: React.FC<Props> = ({
                 selectedStrategy === "TOMORROW" && styles.cardOptionSelected,
               ]}
               onPress={() => setSelectedStrategy("TOMORROW")}
+              accessibilityLabel={`Add ${missing} to tomorrow. Increase tomorrow's target`}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: selectedStrategy === "TOMORROW" }}
             >
               <Text
                 style={[
@@ -256,6 +262,11 @@ const CheckInModal: React.FC<Props> = ({
                 selectedStrategy === "SPREAD" && styles.cardOptionSelected,
               ]}
               onPress={() => setSelectedStrategy("SPREAD")}
+              accessibilityLabel={`Spread over week. Distribute approximately ${Math.ceil(
+                missing / 6
+              )} per day`}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: selectedStrategy === "SPREAD" }}
             >
               <Text
                 style={[
@@ -332,12 +343,19 @@ const CheckInModal: React.FC<Props> = ({
                 {onDeleteAgenda && (
                   <TouchableOpacity
                     onPress={handleDeleteOneOff}
-                    style={{ padding: 4 }}
+                    style={{ padding: 10 }}
+                    accessibilityLabel="Delete task"
+                    accessibilityRole="button"
                   >
                     <Trash size={20} color={theme.error} />
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <TouchableOpacity
+                  onPress={onClose}
+                  style={styles.closeBtn}
+                  accessibilityLabel="Close modal"
+                  accessibilityRole="button"
+                >
                   <X size={24} color={theme.onSurfaceVariant} />
                 </TouchableOpacity>
               </View>
@@ -355,6 +373,10 @@ const CheckInModal: React.FC<Props> = ({
                   placeholder="0"
                   placeholderTextColor={theme.onSurfaceVariant + "80"}
                   autoFocus
+                  accessibilityLabel={`Actual achievement in ${
+                    agenda.unit || "units"
+                  }`}
+                  accessibilityHint={`Enter the amount you achieved. Target is ${target}`}
                 />
                 <Text style={styles.unitText}>{agenda.unit || "units"}</Text>
               </View>
@@ -489,7 +511,12 @@ const CheckInModal: React.FC<Props> = ({
 
           {/* Action Buttons */}
           <View style={styles.footer}>
-            <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
+            <TouchableOpacity
+              onPress={handleSave}
+              style={styles.saveBtn}
+              accessibilityLabel="Save check-in"
+              accessibilityRole="button"
+            >
               <Text style={styles.saveBtnText}>Save Check-in</Text>
             </TouchableOpacity>
           </View>
@@ -539,9 +566,9 @@ const getStyles = (theme: MD3Theme) =>
       marginTop: 4,
     },
     closeBtn: {
-      padding: 4,
-      marginTop: -4,
-      marginRight: -4,
+      padding: 10, // 44px touch target
+      marginTop: -6,
+      marginRight: -6,
     },
     inputContainer: {
       marginBottom: 8,

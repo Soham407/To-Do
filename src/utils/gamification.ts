@@ -443,6 +443,7 @@ export const checkNewAchievements = (
 ): Achievement[] => {
   const newlyUnlocked: Achievement[] = [];
   const today = getLocalDateString(new Date());
+  const consecutivePerfect = calculateConsecutivePerfectDays(tasks);
 
   ACHIEVEMENTS.forEach((achievement) => {
     // Skip if already unlocked
@@ -460,7 +461,6 @@ export const checkNewAchievements = (
         break;
 
       case "consistency":
-        const consecutivePerfect = calculateConsecutivePerfectDays(tasks);
         isUnlocked = consecutivePerfect >= achievement.requirement;
         break;
 
