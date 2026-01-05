@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Modal,
   View,
   Text,
   Button,
@@ -10,9 +9,11 @@ import {
   Alert,
   Platform,
 } from "react-native";
+import SafeModal from "../common/SafeModal";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Agenda, AgendaType } from "../../types";
+import { Agenda, AgendaType, DEFAULT_LISTS } from "../../types";
 import { useTheme, ThemeType } from "../../context/ThemeContext";
+import { MD3Theme, Fonts } from "../../config/theme";
 import { X, Trash2, Save } from "lucide-react-native";
 
 interface Props {
@@ -41,6 +42,7 @@ const GoalSettingsModal: React.FC<Props> = ({
   >("DAILY");
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
   const [reminderTime, setReminderTime] = useState<Date | null>(null);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
@@ -74,6 +76,7 @@ const GoalSettingsModal: React.FC<Props> = ({
       );
       setRecurrencePattern(agenda.recurrencePattern || "DAILY");
       setRecurrenceDays(agenda.recurrenceDays || []);
+      setSelectedListId(agenda.listId || null);
 
       // Determine existing reminder
       if (agenda.reminderTime) {
@@ -107,6 +110,7 @@ const GoalSettingsModal: React.FC<Props> = ({
       recurrencePattern,
       recurrenceDays:
         recurrencePattern === "CUSTOM" ? recurrenceDays : undefined,
+      listId: selectedListId || undefined,
     };
 
     if (reminderTime) {
@@ -146,12 +150,7 @@ const GoalSettingsModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <SafeModal visible={isOpen} onClose={onClose} animationType="fade">
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
           <View style={styles.headerRow}>
@@ -238,6 +237,42 @@ const GoalSettingsModal: React.FC<Props> = ({
               )}
             </View>
           )}
+
+          {/* List Selector (New) */}
+          <View style={styles.section}>
+            <Text style={styles.label}>List</Text>
+            <View style={styles.chipsContainer}>
+              {DEFAULT_LISTS.map((list) => {
+                const isSelected = selectedListId === list.id;
+                return (
+                  <TouchableOpacity
+                    key={list.id}
+                    style={[
+                      styles.chip,
+                      isSelected && {
+                        backgroundColor: list.color + "20",
+                        borderColor: list.color,
+                      },
+                    ]}
+                    onPress={() => setSelectedListId(list.id)}
+                  >
+                    <Text style={{ marginRight: 4 }}>{list.icon}</Text>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        isSelected && {
+                          color: list.color,
+                          fontFamily: Fonts.bold,
+                        },
+                      ]}
+                    >
+                      {list.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           {/* Reminder Section (Time Picker) */}
           <View style={styles.section}>
@@ -326,11 +361,11 @@ const GoalSettingsModal: React.FC<Props> = ({
           )}
         </View>
       </View>
-    </Modal>
+    </SafeModal>
   );
 };
 
-const getStyles = (theme: ThemeType) =>
+const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     centeredView: {
       flex: 1,

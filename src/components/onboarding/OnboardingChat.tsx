@@ -20,6 +20,7 @@ import { Send, ArrowLeft } from "lucide-react-native";
 import { supabase } from "../../api/supabase";
 import { MD3Theme, Fonts } from "../../config/theme";
 import SuccessCelebration from "../common/SuccessCelebration";
+import { Z_INDEX } from "../../config/zIndex";
 
 // Enable LayoutAnimation for Android
 if (
@@ -32,6 +33,7 @@ if (
 interface OnboardingChatProps {
   onComplete: (agenda: Agenda | Agenda[]) => void;
   onCancel: () => void;
+  lists: any[]; // Or import List type
 }
 
 const AnimatedMessageBubble = ({
@@ -145,6 +147,7 @@ const TypingIndicator = ({ styles }: any) => {
 const OnboardingChat: React.FC<OnboardingChatProps> = ({
   onComplete,
   onCancel,
+  lists,
 }) => {
   const { theme } = useTheme();
   const styles = React.useMemo(() => getStyles(theme), [theme]);
@@ -192,6 +195,7 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
             role: m.sender === "user" ? "user" : "assistant",
             content: m.text,
           })),
+          availableLists: lists.map((l) => ({ id: l.id, name: l.name })),
         },
       });
 
@@ -381,7 +385,7 @@ const getStyles = (theme: MD3Theme) =>
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.1,
       shadowRadius: 2,
-      zIndex: 10,
+      zIndex: Z_INDEX.HEADER,
     },
     backButton: {
       padding: 8,

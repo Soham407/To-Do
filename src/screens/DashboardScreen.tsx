@@ -6,9 +6,20 @@ import {
   ScrollView,
   FlatList,
   Dimensions,
-  Animated,
+  Animated as RNAnimated,
   TextInput,
+  Platform,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import Animated, {
+  FadeInDown,
+  FadeOutUp,
+  Layout as ReanimatedLayout,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import {
   ChevronDown,
   ChevronUp,
@@ -39,12 +50,14 @@ import CoachChatModal from "../components/modals/CoachChatModal";
 import GoalTemplatesModal from "../components/modals/GoalTemplatesModal";
 import { getLocalDateString, parseLocalIsoDate } from "../utils/logic";
 import { useTheme } from "../context/ThemeContext";
+import { SPRING_CONFIG } from "../utils/animations";
 import { calculateStreak, StreakInfo } from "../utils/insightsLogic";
 import { getDashboardStyles } from "../components/dashboard/DashboardStyles";
 import TaskCard from "../components/dashboard/TaskCard";
 import ProgressOverview from "../components/dashboard/ProgressOverview";
 import ListsFilterBar from "../components/dashboard/ListsFilterBar";
 import ListsModal from "../components/modals/ListsModal";
+import KanbanSection from "../components/dashboard/KanbanSection";
 
 interface DashboardProps {
   agendas: Agenda[];
@@ -76,8 +89,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   lists,
   onUpdateLists,
 }) => {
-  const { theme } = useTheme();
-  const styles = useMemo(() => getDashboardStyles(theme), [theme]);
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(
+    () => getDashboardStyles(theme, isDark),
+    [theme, isDark]
+  );
   const [selectedTask, setSelectedTask] = useState<DailyTask | null>(null);
   const [selectedAgenda, setSelectedAgenda] = useState<Agenda | null>(null);
   const [settingsAgenda, setSettingsAgenda] = useState<Agenda | null>(null);
@@ -198,27 +214,17 @@ const Dashboard: React.FC<DashboardProps> = ({
     return counts;
   }, [agendas]);
 
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const fabScale = useSharedValue(1);
 
   useEffect(() => {
     if (viewMode === "LIST" && localTasks.length === 0 && agendas.length > 0) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(scaleAnim, {
-            toValue: 1.1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
+      fabScale.value = withSpring(1.1, {
+        damping: 2,
+        stiffness: 150,
+        mass: 0.5,
+      });
     } else {
-      scaleAnim.stopAnimation();
-      scaleAnim.setValue(1);
+      fabScale.value = withSpring(1, SPRING_CONFIG);
     }
   }, [viewMode, localTasks.length, agendas.length]);
 
@@ -255,7 +261,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerWrapper}>
+      <BlurView
+        intensity={Platform.OS === "ios" ? 40 : 60}
+        tint={isDark ? "dark" : "light"}
+        style={styles.headerWrapper}
+      >
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => setIsCalendarOpen(true)}
@@ -269,7 +279,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               {selectedDate === getLocalDateString() ? "Today" : "Your Plan"}
             </Text>
           </TouchableOpacity>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={styles.headerRight}>
             <TouchableOpacity
               onPress={() => setIsTemplatesOpen(true)}
               style={[
@@ -327,12 +337,12 @@ const Dashboard: React.FC<DashboardProps> = ({
           />
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={styles.filterContainer}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.filterScroll}
-            contentContainerStyle={{ gap: 8, paddingBottom: 8 }}
+            contentContainerStyle={styles.filterScrollContainer}
           >
             {(
               ["All", "Today", "Upcoming", "Overdue", "High Priority"] as const
@@ -342,6 +352,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 style={[
                   styles.filterChip,
                   activeFilter === f && styles.filterChipActive,
+                  { marginRight: 8 },
                 ]}
                 onPress={() => {
                   setActiveFilter(f);
@@ -389,7 +400,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           theme={theme}
           goalCounts={goalCounts}
         />
-      </View>
+      </BlurView>
 
       <View style={styles.listContainer}>
         <View
@@ -439,11 +450,14 @@ const Dashboard: React.FC<DashboardProps> = ({
               maxToRenderPerBatch={10}
               windowSize={5}
               initialNumToRender={10}
-              renderItem={({ item }) => {
+              renderItem={({ item, index }) => {
                 const agenda = agendaMap.get(item.agendaId);
                 if (!agenda) return null;
                 return (
-                  <View style={{ marginBottom: 10 }}>
+                  <Animated.View
+                    entering={FadeInDown.delay(index * 100).springify()}
+                    style={{ marginBottom: 10 }}
+                  >
                     <TaskCard
                       task={item}
                       agenda={agenda}
@@ -454,7 +468,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       onSettingsClick={() => setSettingsAgenda(agenda)}
                       onToggleStatus={handleQuickToggle}
                     />
-                  </View>
+                  </Animated.View>
                 );
               }}
             />
@@ -477,163 +491,102 @@ const Dashboard: React.FC<DashboardProps> = ({
                 bg: theme.primaryContainer,
                 color: theme.onPrimaryContainer,
               },
-            ].map((col) => {
-              const filteredTasks = localTasks.filter(col.filter);
-              const isExpanded = expandedSections[col.title] ?? false;
-
-              return (
-                <View key={col.title} style={{ marginBottom: 12 }}>
-                  {/* Accordion Header */}
-                  <TouchableOpacity
-                    onPress={() => {
-                      setExpandedSections((prev) => ({
-                        ...prev,
-                        [col.title]: !prev[col.title],
-                      }));
-                    }}
-                    style={[
-                      styles.columnHeader,
-                      {
-                        backgroundColor: col.bg,
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        paddingVertical: 14,
-                        paddingHorizontal: 16,
-                        borderRadius: 12,
-                      },
-                    ]}
-                    accessibilityLabel={`${col.title} section, ${filteredTasks.length} tasks`}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: isExpanded }}
-                  >
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 10,
-                      }}
-                    >
-                      <Text style={[styles.columnTitle, { color: col.color }]}>
-                        {col.title}
-                      </Text>
-                      <View
-                        style={[
-                          styles.countBadge,
-                          { backgroundColor: theme.surface },
-                        ]}
-                      >
-                        <Text style={styles.countText}>
-                          {filteredTasks.length}
-                        </Text>
-                      </View>
-                    </View>
-                    {isExpanded ? (
-                      <ChevronUp size={20} color={col.color} />
-                    ) : (
-                      <ChevronDown size={20} color={col.color} />
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Accordion Content */}
-                  {isExpanded && (
-                    <View style={{ marginTop: 8 }}>
-                      {filteredTasks.length === 0 ? (
-                        <Text
-                          style={{
-                            color: theme.onSurfaceVariant,
-                            fontStyle: "italic",
-                            textAlign: "center",
-                            paddingVertical: 16,
-                          }}
-                        >
-                          No tasks here
-                        </Text>
-                      ) : (
-                        filteredTasks.map((item) => {
-                          const agenda = agendaMap.get(item.agendaId);
-                          if (!agenda) return null;
-                          return (
-                            <View key={item.id} style={{ marginBottom: 10 }}>
-                              <TaskCard
-                                task={item}
-                                agenda={agenda}
-                                streak={streakMap.get(agenda.id)?.current ?? 0}
-                                theme={theme}
-                                styles={styles}
-                                onClick={handleTaskClick}
-                                onSettingsClick={() =>
-                                  setSettingsAgenda(agenda)
-                                }
-                                onToggleStatus={handleQuickToggle}
-                              />
-                            </View>
-                          );
-                        })
-                      )}
-                    </View>
-                  )}
-                </View>
-              );
-            })}
+            ].map((col) => (
+              <KanbanSection
+                key={col.title}
+                title={col.title}
+                tasks={localTasks.filter(col.filter)}
+                isExpanded={expandedSections[col.title] ?? false}
+                onToggle={() => {
+                  setExpandedSections((prev) => ({
+                    ...prev,
+                    [col.title]: !prev[col.title],
+                  }));
+                }}
+                theme={theme}
+                styles={styles}
+                bg={col.bg}
+                color={col.color}
+                agendaMap={agendaMap}
+                streakMap={streakMap}
+                onTaskClick={handleTaskClick}
+                onSettingsClick={(agenda) => setSettingsAgenda(agenda)}
+                onToggleStatus={handleQuickToggle}
+              />
+            ))}
           </ScrollView>
         )}
       </View>
 
-      <CheckInModal
-        isOpen={!!selectedTask}
-        onClose={() => {
-          setSelectedTask(null);
-          setSelectedAgenda(null);
-        }}
-        task={selectedTask}
-        agenda={selectedAgenda}
-        onUpdateTask={onUpdateTask}
-        onDeleteAgenda={onDeleteAgenda}
-      />
-      <CalendarModal
-        isOpen={isCalendarOpen}
-        onClose={() => setIsCalendarOpen(false)}
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-      />
-      <GoalSettingsModal
-        isOpen={!!settingsAgenda}
-        onClose={() => setSettingsAgenda(null)}
-        agenda={settingsAgenda}
-        onUpdateAgenda={(updated) => onUpdateAgenda(updated.id, updated)}
-        onDeleteAgenda={onDeleteAgenda}
-      />
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-      />
-      <QuickAddModal
-        isOpen={isQuickAddOpen}
-        onClose={() => setIsQuickAddOpen(false)}
-        onCreateTask={onCreateTask}
-      />
-      <CoachChatModal
-        isOpen={isCoachChatOpen}
-        onClose={() => setIsCoachChatOpen(false)}
-        tasks={tasks}
-        agendas={agendas}
-      />
-      <GoalTemplatesModal
-        isOpen={isTemplatesOpen}
-        onClose={() => setIsTemplatesOpen(false)}
-        onCreateGoal={onCreateGoal}
-      />
-      <ListsModal
-        isOpen={isListsOpen}
-        onClose={() => setIsListsOpen(false)}
-        lists={lists}
-        onUpdateLists={onUpdateLists}
-      />
+      {!!selectedTask && (
+        <CheckInModal
+          isOpen={!!selectedTask}
+          onClose={() => {
+            setSelectedTask(null);
+            setSelectedAgenda(null);
+          }}
+          task={selectedTask}
+          agenda={selectedAgenda}
+          onUpdateTask={onUpdateTask}
+          onDeleteAgenda={onDeleteAgenda}
+        />
+      )}
+      {isCalendarOpen && (
+        <CalendarModal
+          isOpen={isCalendarOpen}
+          onClose={() => setIsCalendarOpen(false)}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+        />
+      )}
+      {!!settingsAgenda && (
+        <GoalSettingsModal
+          isOpen={!!settingsAgenda}
+          onClose={() => setSettingsAgenda(null)}
+          agenda={settingsAgenda}
+          onUpdateAgenda={(updated) => onUpdateAgenda(updated.id, updated)}
+          onDeleteAgenda={onDeleteAgenda}
+        />
+      )}
+      {isProfileOpen && (
+        <ProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+        />
+      )}
+      {isQuickAddOpen && (
+        <QuickAddModal
+          isOpen={isQuickAddOpen}
+          onClose={() => setIsQuickAddOpen(false)}
+          onCreateTask={onCreateTask}
+        />
+      )}
+      {isCoachChatOpen && (
+        <CoachChatModal
+          isOpen={isCoachChatOpen}
+          onClose={() => setIsCoachChatOpen(false)}
+          tasks={tasks}
+          agendas={agendas}
+          lists={lists}
+        />
+      )}
+      {isTemplatesOpen && (
+        <GoalTemplatesModal
+          isOpen={isTemplatesOpen}
+          onClose={() => setIsTemplatesOpen(false)}
+          onCreateGoal={onCreateGoal}
+        />
+      )}
+      {isListsOpen && (
+        <ListsModal
+          isOpen={isListsOpen}
+          onClose={() => setIsListsOpen(false)}
+          lists={lists}
+          onUpdateLists={onUpdateLists}
+        />
+      )}
 
-      <Animated.View
-        style={[styles.fab, { transform: [{ scale: scaleAnim }] }]}
-      >
+      <Animated.View style={[styles.fab, { transform: [{ scale: fabScale }] }]}>
         <TouchableOpacity
           style={{
             width: "100%",
@@ -642,6 +595,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             alignItems: "center",
           }}
           onPress={() => setIsQuickAddOpen(true)}
+          onPressIn={() => {
+            fabScale.value = withSpring(0.9, SPRING_CONFIG);
+          }}
+          onPressOut={() => {
+            fabScale.value = withSpring(1, SPRING_CONFIG);
+          }}
+          activeOpacity={1}
         >
           <Plus size={32} color={theme.onPrimaryContainer} />
         </TouchableOpacity>

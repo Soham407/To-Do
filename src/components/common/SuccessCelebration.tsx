@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { View, Animated, StyleSheet, Dimensions } from "react-native";
 import { Check } from "lucide-react-native";
 import { useTheme } from "../../context/ThemeContext";
+import { Z_INDEX } from "../../config/zIndex";
 
 const { width, height } = Dimensions.get("window");
 
@@ -18,21 +19,22 @@ const SuccessCelebration: React.FC<SuccessCelebrationProps> = ({
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Generate confetti particles
-  const confettiPieces = Array.from({ length: 30 }, (_, i) => ({
-    id: i,
-    translateY: useRef(new Animated.Value(0)).current,
-    translateX: useRef(new Animated.Value((Math.random() - 0.5) * width))
-      .current,
-    rotate: useRef(new Animated.Value(0)).current,
-    color: [
-      theme.primary,
-      theme.secondary,
-      theme.tertiary,
-      "#FFC107",
-      "#FF9800",
-      "#4CAF50",
-    ][i % 6],
-  }));
+  const confettiPieces = useRef(
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      translateY: new Animated.Value(0),
+      translateX: new Animated.Value((Math.random() - 0.5) * width),
+      rotate: new Animated.Value(0),
+      color: [
+        theme.primary,
+        theme.secondary,
+        theme.tertiary,
+        "#FFC107",
+        "#FF9800",
+        "#4CAF50",
+      ][i % 6],
+    }))
+  ).current;
 
   useEffect(() => {
     // Checkmark animation
@@ -74,13 +76,15 @@ const SuccessCelebration: React.FC<SuccessCelebrationProps> = ({
     });
 
     // Fade out and complete
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 500,
         useNativeDriver: true,
       }).start(() => onComplete());
     }, 2000);
+
+    return () => clearTimeout(timeout);
   }, []);
 
   return (
@@ -137,7 +141,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.6)",
-    zIndex: 999,
+    zIndex: Z_INDEX.CELEBRATION,
   },
   checkContainer: {
     width: 160,
@@ -157,7 +161,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 2,
-    top: height * 0.5,
+    top: height * 0.1, // Start higher up
   },
 });
 

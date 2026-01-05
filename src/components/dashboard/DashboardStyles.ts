@@ -1,7 +1,8 @@
 import { StyleSheet, Dimensions } from "react-native";
-import { MD3Theme, Fonts } from "../../config/theme";
+import { MD3Theme, Fonts, getShadow } from "../../config/theme";
+import { Z_INDEX } from "../../config/zIndex";
 
-export const getDashboardStyles = (theme: MD3Theme) =>
+export const getDashboardStyles = (theme: MD3Theme, isDark: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -9,7 +10,13 @@ export const getDashboardStyles = (theme: MD3Theme) =>
       backgroundColor: theme.background,
     },
     headerWrapper: {
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 16,
+      marginHorizontal: -16, // Bleed to edges for blur
       marginBottom: 16,
+      borderBottomWidth: 1,
+      borderColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
     },
     header: {
       flexDirection: "row",
@@ -72,7 +79,7 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     },
     profileBtn: {
       padding: 8,
-      marginRight: -8,
+      marginLeft: 4,
     },
     coachBtn: {
       padding: 10,
@@ -80,6 +87,12 @@ export const getDashboardStyles = (theme: MD3Theme) =>
       borderRadius: 12,
       borderWidth: 1,
       borderColor: theme.primary + "30",
+      marginLeft: 8,
+    },
+    headerRight: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
     },
     listContainer: {
       flex: 1,
@@ -95,7 +108,8 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     card: {
       padding: 16,
       borderRadius: 24,
-      marginBottom: 8,
+      marginBottom: 12, // Increased spacing
+      ...getShadow("sm", theme, isDark),
     },
     cardHeader: {
       position: "relative",
@@ -213,6 +227,16 @@ export const getDashboardStyles = (theme: MD3Theme) =>
       justifyContent: "center",
       alignItems: "center",
     },
+    filterContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    filterScrollContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingBottom: 8,
+    },
     emptyIcon: {
       width: 64,
       height: 64,
@@ -247,18 +271,15 @@ export const getDashboardStyles = (theme: MD3Theme) =>
     },
     fab: {
       position: "absolute",
-      bottom: 120,
+      bottom: 100, // Slightly improved for floating feel
       right: 24,
       width: 64,
       height: 64,
-      borderRadius: 24,
+      borderRadius: 20, // Slightly more square/MacOS style
       backgroundColor: theme.primaryContainer,
       justifyContent: "center",
       alignItems: "center",
-      elevation: 6,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
+      zIndex: Z_INDEX.FAB,
+      ...getShadow("lg", theme, isDark),
     },
   });

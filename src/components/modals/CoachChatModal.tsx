@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -15,6 +14,7 @@ import {
   Dimensions,
   Image,
 } from "react-native";
+import SafeModal from "../common/SafeModal";
 import {
   X,
   Send,
@@ -31,6 +31,7 @@ import {
   Agenda,
   TaskStatus,
   FailureTag,
+  List,
 } from "../../types";
 import { generateId, getLocalDateString } from "../../utils/logic";
 import { calculateStreak } from "../../utils/insightsLogic";
@@ -49,6 +50,7 @@ interface Props {
   onClose: () => void;
   tasks: DailyTask[];
   agendas: Agenda[];
+  lists: List[];
 }
 
 // Animated message bubble component
@@ -194,6 +196,7 @@ const CoachChatModal: React.FC<Props> = ({
   onClose,
   tasks,
   agendas,
+  lists,
 }) => {
   const { theme } = useTheme();
   const styles = useMemo(() => getStyles(theme), [theme]);
@@ -210,6 +213,7 @@ const CoachChatModal: React.FC<Props> = ({
 
   // Build context for the AI
   const buildContext = useMemo(() => {
+    // ... existing stats calculation ...
     const today = getLocalDateString(new Date());
     const todayTasks = tasks.filter((t) => t.scheduledDate === today);
     const completedToday = todayTasks.filter(
@@ -256,7 +260,6 @@ const CoachChatModal: React.FC<Props> = ({
     // Buffer tokens remaining
     const totalBuffers = agendas.reduce((sum, a) => sum + a.bufferTokens, 0);
 
-    // Goals summary
     const goalsSummary = agendas.slice(0, 3).map((a) => ({
       title: a.title,
       progress: a.totalTarget
@@ -277,8 +280,9 @@ const CoachChatModal: React.FC<Props> = ({
       recentFailureTags: uniqueFailureTags,
       buffersRemaining: totalBuffers,
       goals: goalsSummary,
+      availableLists: lists.map((l) => ({ id: l.id, name: l.name })), // Pass lists to AI
     };
-  }, [tasks, agendas]);
+  }, [tasks, agendas, lists]);
 
   // Reset messages when modal opens
   useEffect(() => {
@@ -424,11 +428,11 @@ const CoachChatModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal
+    <SafeModal
       visible={isOpen}
       animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
+      fullScreen={true}
+      onClose={onClose}
     >
       <View style={styles.container}>
         {/* Header */}
@@ -518,7 +522,7 @@ const CoachChatModal: React.FC<Props> = ({
           </View>
         </KeyboardAvoidingView>
       </View>
-    </Modal>
+    </SafeModal>
   );
 };
 

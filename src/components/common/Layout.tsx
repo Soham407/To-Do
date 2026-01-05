@@ -1,15 +1,14 @@
 import React, { ReactNode } from "react";
+import { View, StyleSheet, Platform } from "react-native";
 import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LayoutDashboard, Target, PieChart } from "lucide-react-native";
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
 import { useTheme } from "../../context/ThemeContext";
-import { MD3Theme } from "../../config/theme";
+import { MD3Theme, getShadow } from "../../config/theme";
+import AnimatedTabBar from "./AnimatedTabBar";
+import { Z_INDEX } from "../../config/zIndex";
 
 interface LayoutProps {
   children: ReactNode;
@@ -24,12 +23,12 @@ const Layout: React.FC<LayoutProps> = ({
   onTabChange,
   showNav = true,
 }) => {
-  const { theme } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme), [theme]);
-
-  // Icon color logic:
-  const getIconColor = (isActive: boolean) =>
-    isActive ? theme.onSecondaryContainer : theme.onSurfaceVariant;
+  const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const styles = React.useMemo(
+    () => getStyles(theme, isDark, insets.bottom),
+    [theme, isDark, insets.bottom]
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
@@ -37,62 +36,24 @@ const Layout: React.FC<LayoutProps> = ({
 
       {showNav && (
         <View style={styles.navContainer}>
-          <View style={styles.navBar}>
-            {/* Dashboard Tab */}
-            <TouchableOpacity
-              onPress={() => onTabChange("dashboard")}
-              style={styles.navButton}
-              accessibilityLabel="Dashboard tab"
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === "dashboard" }}
-            >
-              {activeTab === "dashboard" && <View style={styles.activePill} />}
-              <LayoutDashboard
-                size={24}
-                color={getIconColor(activeTab === "dashboard")}
-                strokeWidth={activeTab === "dashboard" ? 2.5 : 2}
-              />
-            </TouchableOpacity>
-
-            {/* Add Goal (Center) */}
-            <TouchableOpacity
-              onPress={() => onTabChange("onboarding")}
-              style={styles.navButton}
-              accessibilityLabel="Create new goal tab"
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === "onboarding" }}
-            >
-              {activeTab === "onboarding" && <View style={styles.activePill} />}
-              <Target
-                size={24}
-                color={getIconColor(activeTab === "onboarding")}
-                strokeWidth={activeTab === "onboarding" ? 2.5 : 2}
-              />
-            </TouchableOpacity>
-
-            {/* Insights Tab */}
-            <TouchableOpacity
-              onPress={() => onTabChange("report")}
-              style={styles.navButton}
-              accessibilityLabel="Insights and reports tab"
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === "report" }}
-            >
-              {activeTab === "report" && <View style={styles.activePill} />}
-              <PieChart
-                size={24}
-                color={getIconColor(activeTab === "report")}
-                strokeWidth={activeTab === "report" ? 2.5 : 2}
-              />
-            </TouchableOpacity>
-          </View>
+          <BlurView
+            intensity={Platform.OS === "ios" ? 80 : 100}
+            tint={isDark ? "dark" : "light"}
+            style={styles.blurWrapper}
+          >
+            <AnimatedTabBar
+              activeTab={activeTab}
+              onTabChange={onTabChange}
+              theme={theme}
+            />
+          </BlurView>
         </View>
       )}
     </SafeAreaView>
   );
 };
 
-const getStyles = (theme: MD3Theme) =>
+const getStyles = (theme: MD3Theme, isDark: boolean, bottomInset: number) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -103,41 +64,21 @@ const getStyles = (theme: MD3Theme) =>
     },
     navContainer: {
       position: "absolute",
-      bottom: 24,
+      bottom: Math.max(bottomInset, 20), // Ensure at least 20px from bottom, or safe area
       left: 0,
       right: 0,
       alignItems: "center",
       justifyContent: "center",
-      zIndex: 100,
+      zIndex: Z_INDEX.TAB_BAR,
+      ...getShadow("lg", theme, isDark),
     },
-    navBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-around",
-      backgroundColor: theme.surfaceContainerHigh,
+    blurWrapper: {
       width: "80%",
-      paddingVertical: 12,
       borderRadius: 100,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 10,
-      elevation: 6,
-    },
-    navButton: {
-      alignItems: "center",
-      justifyContent: "center",
-      width: 56,
-      height: 56,
-      minHeight: 48,
-    },
-    activePill: {
-      position: "absolute",
-      width: 64,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: theme.secondaryContainer,
-      zIndex: -1,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+      backgroundColor: isDark ? "rgba(20,18,24,0.7)" : "rgba(254,247,255,0.7)",
     },
   });
 

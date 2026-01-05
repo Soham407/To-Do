@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
@@ -10,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import SafeModal from "../common/SafeModal";
 import { useTheme } from "../../context/ThemeContext";
 import { Fonts, MD3Theme } from "../../config/theme";
 import {
@@ -116,12 +116,7 @@ const GoalTemplatesModal: React.FC<GoalTemplatesModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={resetAndClose}
-    >
+    <SafeModal visible={isOpen} animationType="slide" onClose={resetAndClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.overlay}
@@ -328,7 +323,7 @@ const GoalTemplatesModal: React.FC<GoalTemplatesModalProps> = ({
           )}
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </SafeModal>
   );
 };
 

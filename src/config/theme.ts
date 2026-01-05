@@ -112,3 +112,46 @@ export const Fonts = {
   medium: "Outfit_500Medium",
   bold: "Outfit_700Bold",
 };
+
+/**
+ * Generates a premium MacOS-style shadow
+ */
+export const getShadow = (
+  elevation: "sm" | "md" | "lg" | "xl",
+  theme: MD3Theme,
+  isDark: boolean
+) => {
+  const shadowColor = isDark ? "#000000" : theme.primary;
+
+  const configs = {
+    sm: {
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.4 : 0.08,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    md: {
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.5 : 0.12,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    lg: {
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: isDark ? 0.6 : 0.16,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    xl: {
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isDark ? 0.7 : 0.2,
+      shadowRadius: 24,
+      elevation: 12,
+    },
+  };
+
+  return {
+    shadowColor,
+    ...configs[elevation],
+  };
+};

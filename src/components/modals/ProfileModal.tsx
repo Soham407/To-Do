@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import SafeModal from "../common/SafeModal";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../api/supabase";
@@ -70,12 +70,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <SafeModal visible={isOpen} animationType="fade" onClose={onClose}>
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
           <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -164,7 +159,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           </ScrollView>
         </View>
       </View>
-    </Modal>
+    </SafeModal>
   );
 };
 

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
@@ -9,6 +8,7 @@ import {
   TextInput,
   Alert,
 } from "react-native";
+import SafeModal from "../common/SafeModal";
 import { useTheme } from "../../context/ThemeContext";
 import { Fonts, MD3Theme } from "../../config/theme";
 import { X, Plus, Edit2, Trash2, Check, Folder } from "lucide-react-native";
@@ -146,12 +146,7 @@ const ListsModal: React.FC<ListsModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <SafeModal visible={isOpen} animationType="slide" onClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           {/* Header */}
@@ -324,7 +319,7 @@ const ListsModal: React.FC<ListsModalProps> = ({
           )}
         </View>
       </View>
-    </Modal>
+    </SafeModal>
   );
 };
 

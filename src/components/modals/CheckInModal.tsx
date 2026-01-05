@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -9,6 +8,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import SafeModal from "../common/SafeModal";
 import {
   DailyTask,
   Agenda,
@@ -317,12 +317,7 @@ const CheckInModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      animationType="fade"
-      transparent
-      onRequestClose={onClose}
-    >
+    <SafeModal visible={isOpen} onClose={onClose} animationType="fade">
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
           <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -522,7 +517,7 @@ const CheckInModal: React.FC<Props> = ({
           </View>
         </View>
       </View>
-    </Modal>
+    </SafeModal>
   );
 };
 

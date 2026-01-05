@@ -1,6 +1,5 @@
 import React, { useMemo, useRef, useEffect } from "react";
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   Animated,
   Dimensions,
 } from "react-native";
+import SafeModal from "../common/SafeModal";
 import {
   X,
   Trophy,
@@ -230,11 +230,11 @@ const AchievementsModal: React.FC<Props> = ({
   }, [isOpen, unlockedAchievements]);
 
   return (
-    <Modal
+    <SafeModal
       visible={isOpen}
       animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
+      fullScreen={true}
+      onClose={onClose}
     >
       <View style={s.container}>
         {/* Header */}
@@ -355,7 +355,7 @@ const AchievementsModal: React.FC<Props> = ({
           </View>
         </ScrollView>
       </View>
-    </Modal>
+    </SafeModal>
   );
 };
 

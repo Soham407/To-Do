@@ -1,12 +1,6 @@
 import React from "react";
-import {
-  Modal,
-  View,
-  Text,
-  Button,
-  StyleSheet,
-  TouchableOpacity,
-} from "react-native";
+import { View, Text, Button, StyleSheet, TouchableOpacity } from "react-native";
+import SafeModal from "../common/SafeModal";
 import { Calendar, DateData } from "react-native-calendars";
 import { useTheme } from "../../context/ThemeContext";
 import { MD3Theme } from "../../config/theme";
@@ -52,12 +46,7 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      animationType="fade"
-      transparent
-      onRequestClose={onClose}
-    >
+    <SafeModal visible={isOpen} onClose={onClose} animationType="fade">
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
           <View style={styles.header}>
@@ -85,7 +74,7 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
           />
         </View>
       </View>
-    </Modal>
+    </SafeModal>
   );
 };
 

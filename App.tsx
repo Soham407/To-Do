@@ -31,6 +31,7 @@ import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import SignupScreen from "./src/screens/auth/SignupScreen";
 import { syncWithCloud } from "./src/utils/sync";
+import { ToastProvider, useToast } from "./src/components/common/Toast";
 
 // Custom Fonts
 import {
@@ -108,7 +109,9 @@ export default function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
-          <MainApp />
+          <ToastProvider>
+            <MainApp />
+          </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
@@ -127,6 +130,7 @@ function MainApp() {
   const [isNewUser, setIsNewUser] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const { showToast } = useToast();
 
   // Debounce timeout ref for persistence
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -242,8 +246,24 @@ function MainApp() {
         await syncWithCloud(agendas, tasks, setAgendas, setTasks);
 
         console.log("✅ Cloud Data Initialization Complete.");
+        showToast({
+          message: "Data synced successfully",
+          type: "success",
+          duration: 2000,
+        });
       } catch (error) {
         console.error("❌ Data Initialization failed:", error);
+        showToast({
+          message: "Sync failed. Your data is saved locally.",
+          type: "error",
+          duration: 5000,
+          action: {
+            label: "Retry",
+            onPress: () => {
+              lastInitializedUser.current = null; // Reset to allow retry
+            },
+          },
+        });
       } finally {
         setIsSyncing(false);
       }
@@ -451,9 +471,8 @@ function MainApp() {
         return (
           <OnboardingChat
             onComplete={handleAgendaCreated}
-            onCancel={() =>
-              setView(agendas.length > 0 ? "dashboard" : "onboarding")
-            }
+            onCancel={() => setView("dashboard")}
+            lists={lists}
           />
         );
       case "dashboard":

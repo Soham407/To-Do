@@ -140,10 +140,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get today's date
-    const today = new Date();
-    const todayISO = today.toISOString().substring(0, 10);
-
     // Build context summary from provided data
     let userContextSummary = "No additional context provided.";
 
@@ -194,6 +190,10 @@ Deno.serve(async (req: Request) => {
         userContextSummary = parts.join(" ");
       }
     }
+
+    // Get today's date for the AI to use dynamically
+    const today = new Date();
+    const todayISO = today.toISOString().substring(0, 10); // YYYY-MM-DD
 
     const systemPrompt = `
     You are the "Goal Coach," a supportive, warm, and encouraging AI assistant for productivity.

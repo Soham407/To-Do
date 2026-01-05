@@ -34,7 +34,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, availableLists } = await req.json();
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(
@@ -57,35 +57,6 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    /* --- RATE LIMITING DISABLED ---
-    const { count, error: countError } = await supabase
-      .from("ai_usage_logs")
-      .select("*", { count: "exact", head: true })
-      .gte(
-        "created_at",
-        new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
-      );
-
-    if (!countError && count !== null && count >= 20) {
-      return new Response(
-        JSON.stringify({
-          error: "Daily AI limit reached. Please try again tomorrow.",
-        }),
-        {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const { data: userData } = await supabase.auth.getUser();
-    if (userData?.user) {
-      await supabase
-        .from("ai_usage_logs")
-        .insert({ user_id: userData.user.id });
-    }
-    --- END RATE LIMITING --- */
-
     // 2. Fetch Existing Agendas
     const { data: existingAgendas, error: dbError } = await supabase
       .from("agendas")
@@ -97,10 +68,21 @@ Deno.serve(async (req: Request) => {
       existingAgendas && existingAgendas.length > 0
         ? existingAgendas
             .map(
-              (a) => `- ${a.title} (${a.type}: ${a.total_target || "Daily"})`
+              (a: any) =>
+                `- ${a.title} (${a.type}: ${a.total_target || "Daily"})`
             )
             .join("\n")
         : "The user has no active goals yet.";
+
+    // Process Lists for Prompt
+    const listContext =
+      availableLists &&
+      Array.isArray(availableLists) &&
+      availableLists.length > 0
+        ? availableLists
+            .map((l: any) => `- "${l.name}" (ID: ${l.id})`)
+            .join("\n")
+        : "No custom lists available.";
 
     // Get today's date for the AI to use dynamically
     const today = new Date();
@@ -149,6 +131,12 @@ Deno.serve(async (req: Request) => {
        - If the goal is clear (e.g., "Gym 30 days"), SKIP motivation questions. Just build it.
        - Only ask "Why" if the input is vague ("I want to get fit").
 
+    4. **Lists / Categorization**:
+       - Available Lists:
+${listContext}
+       - If the goal matches a list contextually, include its "listId".
+       - Example: "Run 5km" -> Health list ID.
+       - If no match, set "listId" to null.
 
     ### JSON OUTPUT STRUCTURE
     Respond ONLY with JSON.
@@ -168,6 +156,7 @@ Deno.serve(async (req: Request) => {
           "endDate": "YYYY-MM-DD", // REQUIRED if duration specified. Calculate: startDate + durationDays
           "durationDays": number, // REQUIRED if user specifies duration (e.g., "30 days" = 30)
           "reminderTime": "HH:mm", // Optional: "20:00" if user said "8pm"
+          "listId": "string", // ID of the matched list from context, or null
           "bufferTokens": 3
         }
       ]
@@ -197,7 +186,7 @@ Deno.serve(async (req: Request) => {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
 
-    const modelName = "gemini-2.5-flash";
+    const modelName = "gemini-1.5-flash"; // Switched to 1.5 Flash for speed/reliability
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
       {

@@ -36,7 +36,18 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+tsc_output.txt
 
 # generated native folders
 /ios
 /android
+
+# Agent/Tool files
+.agent/
+.gemini/
+.cursorrules
+
+# Supabase
+supabase/.temp/
+
+

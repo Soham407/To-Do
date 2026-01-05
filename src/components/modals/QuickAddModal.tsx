@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -12,6 +11,7 @@ import {
   Keyboard,
   Animated,
 } from "react-native";
+import SafeModal from "../common/SafeModal";
 import { useTheme } from "../../context/ThemeContext";
 import { Priority } from "../../types";
 import {
@@ -27,6 +27,8 @@ import { getLocalDateString } from "../../utils/logic";
 import { Fonts, MD3Theme } from "../../config/theme";
 import CalendarModal from "./CalendarModal";
 import * as Haptics from "expo-haptics";
+import { Z_INDEX } from "../../config/zIndex";
+import { Pressable } from "react-native";
 
 interface QuickAddModalProps {
   isOpen: boolean;
@@ -151,19 +153,16 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
   }, [isOpen]);
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <SafeModal visible={isOpen} animationType="fade" onClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.overlay}
       >
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={styles.backdrop} />
-        </TouchableWithoutFeedback>
+        <Pressable
+          style={styles.backdrop}
+          onPress={onClose}
+          pointerEvents="auto"
+        />
 
         <Animated.View
           style={[styles.container, { transform: [{ scale: scaleAnim }] }]}
@@ -429,7 +428,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
           }}
         />
       )}
-    </Modal>
+    </SafeModal>
   );
 };
 
@@ -442,6 +441,7 @@ const getStyles = (theme: MD3Theme) =>
     backdrop: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: "rgba(0,0,0,0.4)",
+      zIndex: Z_INDEX.MODAL_BACKDROP,
     },
     container: {
       backgroundColor: theme.surfaceContainerHigh,
@@ -449,8 +449,8 @@ const getStyles = (theme: MD3Theme) =>
       borderTopRightRadius: 28,
       padding: 24,
       paddingBottom: Platform.OS === "ios" ? 40 : 24,
-      elevation: 20, // Higher than Layout's navBar (8)
-      zIndex: 1000,
+      elevation: 20,
+      zIndex: Z_INDEX.MODAL,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: -2 },
       shadowOpacity: 0.1,
@@ -501,7 +501,6 @@ const getStyles = (theme: MD3Theme) =>
     chipsContainer: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 8,
     },
     chip: {
       flexDirection: "row",
@@ -512,6 +511,8 @@ const getStyles = (theme: MD3Theme) =>
       borderWidth: 1,
       borderColor: theme.outline + "40",
       backgroundColor: theme.surface,
+      marginRight: 8,
+      marginBottom: 8,
     },
     chipText: {
       fontSize: 14,
