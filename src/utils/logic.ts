@@ -222,9 +222,20 @@ export const recalculateNumericTasks = (
   return newTasks;
 };
 
-// FIX: Just trim. React Native Text components don't execute HTML/JS.
-// If you are worried about formatting injection, escape Markdown characters, don't regex HTML.
+// Defense-in-depth: Strip HTML tags from AI/user text.
+// While React Native Text doesn't execute scripts, this protects
+// against future web builds or WebView usage.
 export const sanitizeMarkdown = (text: string): string => {
   if (!text) return "";
-  return text.trim();
+  // First remove script/style tags with their content
+  let sanitized = text.replace(
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    ""
+  );
+  sanitized = sanitized.replace(
+    /<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi,
+    ""
+  );
+  // Then remove any remaining HTML tags (keep content)
+  return sanitized.replace(/<[^>]*>/g, "").trim();
 };

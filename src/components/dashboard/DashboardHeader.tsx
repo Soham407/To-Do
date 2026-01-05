@@ -17,7 +17,6 @@ import {
   Zap,
   FolderOpen,
 } from "lucide-react-native";
-import { Theme } from "../context/ThemeContext";
 import ProgressOverview from "./ProgressOverview";
 import ListsFilterBar from "./ListsFilterBar";
 import { Agenda, DailyTask, List } from "../../types";
