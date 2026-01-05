@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ActivityIndicator, View, StyleSheet } from "react-native";
+import { ActivityIndicator, View, StyleSheet, BackHandler } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Layout from "./src/components/common/Layout";
@@ -243,7 +243,7 @@ function MainApp() {
 
         // 3. Run Sync (Cloud -> Local with MERGE)
         console.log("🔄 Running Sync...");
-        await syncWithCloud(agendas, tasks, setAgendas, setTasks);
+        await syncWithCloud(setAgendas, setTasks);
 
         console.log("✅ Cloud Data Initialization Complete.");
         showToast({
@@ -399,6 +399,21 @@ function MainApp() {
       setView("onboarding");
     }
   }, [agendas, loading]);
+
+  // FIX: Android Back Handler
+  useEffect(() => {
+    const onBackPress = () => {
+      if (view !== "dashboard") {
+        setView("dashboard");
+        return true; // handled
+      }
+      return false; // exit app
+    };
+
+    BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () =>
+      BackHandler.removeEventListener("hardwareBackPress", onBackPress);
+  }, [view]);
 
   const handleDeleteAgenda = (id: string) => {
     setAgendas((prev) => prev.filter((a) => a.id !== id));

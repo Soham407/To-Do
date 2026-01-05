@@ -11,6 +11,7 @@ import {
   Keyboard,
   Animated,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SafeModal from "../common/SafeModal";
 import { useTheme } from "../../context/ThemeContext";
 import { Priority } from "../../types";
@@ -47,7 +48,11 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
   onCreateTask,
 }) => {
   const { theme } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
+  const styles = React.useMemo(
+    () => getStyles(theme, insets.bottom),
+    [theme, insets.bottom]
+  );
 
   const [title, setTitle] = useState("");
   const [dateOption, setDateOption] = useState<"Today" | "Tomorrow" | "Pick">(
@@ -432,7 +437,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
   );
 };
 
-const getStyles = (theme: MD3Theme) =>
+const getStyles = (theme: MD3Theme, bottomInset: number) =>
   StyleSheet.create({
     overlay: {
       flex: 1,
@@ -448,7 +453,7 @@ const getStyles = (theme: MD3Theme) =>
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
       padding: 24,
-      paddingBottom: Platform.OS === "ios" ? 40 : 24,
+      paddingBottom: Math.max(bottomInset, 24),
       elevation: 20,
       zIndex: Z_INDEX.MODAL,
       shadowColor: "#000",

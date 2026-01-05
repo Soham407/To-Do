@@ -44,7 +44,6 @@ const GoalSettingsModal: React.FC<Props> = ({
   const [reminderTime, setReminderTime] = useState<Date | null>(null);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   const placeholders = [
     "e.g. Daily Meditation",
@@ -92,8 +91,6 @@ const GoalSettingsModal: React.FC<Props> = ({
       } else {
         setReminderTime(null);
       }
-
-      setIsConfirmingDelete(false);
     }
   }, [agenda]);
 
@@ -141,12 +138,21 @@ const GoalSettingsModal: React.FC<Props> = ({
   };
 
   const handleDelete = () => {
-    if (isConfirmingDelete) {
-      onDeleteAgenda(agenda.id);
-      onClose();
-    } else {
-      setIsConfirmingDelete(true);
-    }
+    Alert.alert(
+      `Delete ${itemLabel}`,
+      `Are you sure you want to delete "${agenda.title}"? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            onDeleteAgenda(agenda.id);
+            onClose();
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -335,30 +341,13 @@ const GoalSettingsModal: React.FC<Props> = ({
 
           <View style={styles.divider} />
 
-          {!isConfirmingDelete ? (
-            <TouchableOpacity
-              onPress={handleDelete}
-              style={styles.deleteBtnInitial}
-            >
-              <Trash2 size={18} color={theme.error} />
-              <Text style={styles.deleteBtnText}>Delete {itemLabel}</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.deleteConfirmRow}>
-              <TouchableOpacity
-                onPress={() => setIsConfirmingDelete(false)}
-                style={styles.cancelDeleteBtn}
-              >
-                <Text style={styles.cancelDeleteText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleDelete}
-                style={styles.confirmDeleteBtn}
-              >
-                <Text style={styles.confirmDeleteText}>Confirm</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          <TouchableOpacity
+            onPress={handleDelete}
+            style={styles.deleteBtnInitial}
+          >
+            <Trash2 size={18} color={theme.error} />
+            <Text style={styles.deleteBtnText}>Delete {itemLabel}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </SafeModal>

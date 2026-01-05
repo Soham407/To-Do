@@ -290,7 +290,13 @@ const WeeklyReflectionModal: React.FC<Props> = ({
     });
 
     return (
-      <View style={s.dayChart}>
+      <View
+        style={s.dayChart}
+        accessible={true}
+        accessibilityLabel={`Daily breakdown chart. Best day was ${
+          weekData.bestDay ? getDayName(weekData.bestDay) : "none"
+        }. Consistency score ${weekData.completionRate} percent.`}
+      >
         {Object.entries(dayData).map(([date, stats], index) => {
           const rate = stats.total > 0 ? stats.completed / stats.total : 0;
           const isPerfect = stats.total > 0 && stats.completed === stats.total;

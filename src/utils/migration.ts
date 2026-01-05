@@ -130,14 +130,18 @@ export const migrateLocalDataToSupabase = async () => {
     JSON.stringify(Array.from(agendaIdMap.entries()))
   );
 
-  // Upsert Agendas
-  const { error: agendaError } = await supabase
-    .from("agendas")
-    .upsert(agendaRows, { onConflict: "id" });
+  // Upsert Agendas (Chunked)
+  const CHUNK_SIZE = 100;
+  for (let i = 0; i < agendaRows.length; i += CHUNK_SIZE) {
+    const chunk = agendaRows.slice(i, i + CHUNK_SIZE);
+    const { error: agendaError } = await supabase
+      .from("agendas")
+      .upsert(chunk, { onConflict: "id" });
 
-  if (agendaError) {
-    console.error("Error migrating agendas:", agendaError);
-    throw agendaError;
+    if (agendaError) {
+      console.error("Error migrating agendas chunk:", agendaError);
+      throw agendaError;
+    }
   }
 
   // 4. Insert Tasks
@@ -164,13 +168,16 @@ export const migrateLocalDataToSupabase = async () => {
     );
 
     if (taskRows.length > 0) {
-      const { error: taskError } = await supabase
-        .from("daily_tasks")
-        .upsert(taskRows, { onConflict: "id" });
+      for (let i = 0; i < taskRows.length; i += CHUNK_SIZE) {
+        const chunk = taskRows.slice(i, i + CHUNK_SIZE);
+        const { error: taskError } = await supabase
+          .from("daily_tasks")
+          .upsert(chunk, { onConflict: "id" });
 
-      if (taskError) {
-        console.error("Error migrating tasks:", taskError);
-        throw taskError;
+        if (taskError) {
+          console.error("Error migrating tasks chunk:", taskError);
+          throw taskError;
+        }
       }
     }
 
@@ -185,7 +192,6 @@ export const migrateLocalDataToSupabase = async () => {
         agendaIdMap.has(task.agendaId)
       ) {
         // We need the NEW task ID for the subtask foreign key.
-        // Since we generated deterministic UUIDs for tasks based on their ID, we can re-derive it.
         const taskId = await getDeterministicUUID(task.id);
 
         for (const sub of task.subtasks) {
@@ -195,22 +201,23 @@ export const migrateLocalDataToSupabase = async () => {
             task_id: taskId,
             title: sub.title,
             is_completed: sub.isCompleted,
-            created_at: new Date().toISOString(), // Or separate ID if we tracked it
+            created_at: new Date().toISOString(),
           });
         }
       }
     }
 
     if (subtaskRows.length > 0) {
-      const { error: subtaskError } = await supabase
-        .from("subtasks")
-        .upsert(subtaskRows, { onConflict: "id" });
+      for (let i = 0; i < subtaskRows.length; i += CHUNK_SIZE) {
+        const chunk = subtaskRows.slice(i, i + CHUNK_SIZE);
+        const { error: subtaskError } = await supabase
+          .from("subtasks")
+          .upsert(chunk, { onConflict: "id" });
 
-      if (subtaskError) {
-        console.error("Error migrating subtasks:", subtaskError);
-        // Don't throw, partial success is better than failure here?
-        // Better to throw to retry later.
-        throw subtaskError;
+        if (subtaskError) {
+          console.error("Error migrating subtasks chunk:", subtaskError);
+          throw subtaskError;
+        }
       }
     }
   }

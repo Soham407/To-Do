@@ -567,11 +567,23 @@ export const buildUserStats = (
   let longestStreak = 0;
   let currentStreak = 0;
 
+  // Group tasks by agendaId for efficiency O(M)
+  const tasksByAgenda = new Map<string, DailyTask[]>();
+  tasks.forEach((t) => {
+    if (!tasksByAgenda.has(t.agendaId)) {
+      tasksByAgenda.set(t.agendaId, []);
+    }
+    tasksByAgenda.get(t.agendaId)!.push(t);
+  });
+
   // Calculate streaks across all agendas
   agendas.forEach((agenda) => {
-    const streakInfo = calculateStreak(tasks, agenda.id);
-    longestStreak = Math.max(longestStreak, streakInfo.longest);
-    currentStreak = Math.max(currentStreak, streakInfo.current);
+    const agendaTasks = tasksByAgenda.get(agenda.id) || [];
+    if (agendaTasks.length > 0) {
+      const streakInfo = calculateStreak(agendaTasks);
+      longestStreak = Math.max(longestStreak, streakInfo.longest);
+      currentStreak = Math.max(currentStreak, streakInfo.current);
+    }
   });
 
   const perfectDays = calculatePerfectDays(tasks);

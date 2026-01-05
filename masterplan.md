@@ -1,90 +1,67 @@
-MASTERPLAN V2: The Goal Decomposition Engine (Cross-Platform)
+MASTERPLAN V3: The Intelligent Adaptation Engine (V1.0 Release Candidate)
 
 ## 1. Executive Summary
-A cross-platform mobile application (React Native/Expo) that acts as an intelligent "Coach," helping users break down huge goals into daily tasks. The core philosophy is **"Flexible Consistency."** It allows users to recover from failures via dynamic recalculation (for numeric goals) or safety buffers (for habits), capturing the *context* of failure through low-friction tagging.
+
+A cross-platform mobile application (React Native/Expo) that acts as an intelligent "Coach," helping users break down huge goals into daily tasks. The core philosophy is **"Flexible Consistency."** It allows users to recover from failures via dynamic recalculation (for numeric goals) or safety buffers (for habits), capturing the _context_ of failure through low-friction tagging. **V3 expands this with a robust Gamification Engine and AI-driven coaching for long-term engagement.**
 
 ## 2. Target Audience
-* **The "All-or-Nothing" Personality:** People who quit habits after one mistake.
-* **Students/Self-Learners:** Tracking quantitative progress (pages, hours).
-* **MVP Scope:** Single-player mode only. No social features yet.
+
+- **The "All-or-Nothing" Personality:** People who quit habits after one mistake.
+- **Students/Self-Learners:** Tracking quantitative progress (pages, hours).
+- **The "Gamer" Mindset:** Users motivated by levels, XP, and achievements.
+- **MVP Scope:** High-fidelity single-player experience with cloud sync.
 
 ## 3. Core Features & Functionality
 
-### A. The Onboarding (Conversational UI)
-* **Format:** Chat-based interface.
-* **Logic:** Differentiates between:
-    * **Numeric Goals:** (Reading 800 pages) -> Uses "Recalculation."
-    * **Boolean Habits:** (Going to Gym) -> Uses "Buffer System."
+### A. The AI Onboarding & Coaching (Gemini Integration)
 
-### B. The Execution & Check-in
-* **Low-Friction Logging:**
-    * *Success:* One tap.
-    * *Partial/Failure:* Select a "Quick Tag" (e.g., 🤒 Sick, 💼 Work Overload, 😴 Tired).
-    * *Optional:* Add a text remark only if they want to.
+- **Intelligent Setup:** Chat-based interface using Gemini Flash to convert natural language (e.g., "I want to read 10 books this year") into structured Agendas.
+- **Adaptive Nudges:** Supabase Edge Functions analyze progress and provide context-aware advice (e.g., "You're on a 5-day streak! Keep it up" or "Fridays are tough for you, maybe schedule lighter tasks?").
 
-### C. The "Recovery" Logic (Dual Engine)
-1.  **For Numeric Goals (Recalculation):**
-    * *Scenario:* User reads 20/40 pages.
-    * *Action:* App asks: "Add remaining 20 to tomorrow, or spread over the week?"
-2.  **For Boolean Habits (The Buffer):**
-    * *Scenario:* User misses Gym.
-    * *Action:* App deducts 1 "Life Happens" token (e.g., 3 allowed per month). Streak is *maintained* if they use a token and log a Quick Tag.
+### B. The Recovery Logic (The "Flex" Engine)
 
-### D. The "Hybrid" Report
-* **Visuals:** Calendar view showing "Success" (Green), "Buffered" (Yellow), "Failed" (Red).
-* **Insights:** Correlations displayed simply (e.g., "You often use 'Tired' tags on Fridays").
+1. **Recalculation (Numeric):** Spreads missed quantitative targets over future days.
+2. **Safety Buffer (Boolean):** Uses "Life Happens" tokens to protect streaks from unavoidable misses, provided a "Quick Tag" (context) is logged.
+
+### C. Gamification Engine (XP & Levels)
+
+- **XP Rewards:** Earn XP for completing tasks, perfect days, and maintaining streaks.
+- **Leveling System:** 20 levels with unique titles (from "Beginner" to "Goal Coach Legend").
+- **Achievements:** 20+ unlockable medals across categories: Streak, Completion, Consistency, and Special milestones.
+
+### D. Offline-First Sync Engine
+
+- **Local-First:** Immediate response via local state.
+- **Sync Background:** Robust `mergeById` strategy for syncing with Supabase.
+- **Migration Flow:** Seamlessly upgrades Guest users (Anonymous) to Full Accounts (Email/Social) without data loss.
 
 ## 4. Technical Stack & Architecture
 
-* **Frontend:** **React Native** + **Expo**.
-* **UI Library:** `react-native-gifted-chat` (for Coach interface) or custom animated cards.
-* **Backend:** **Supabase**.
-* **Auth:** **Supabase Anonymous Sign-ins**.
-    * *Flow:* User starts immediately (Guest). Device is assigned an Anonymous ID. When they want to save/sync, we "Link" an Email/Password to that ID.
-* **Logic:**
-    * *MVP:* Client-side math (JavaScript) for recalculation.
-    * *Scale:* Move complex recalculation logic to **Supabase Edge Functions** (TypeScript) later.
+- **Frontend:** React Native + Expo.
+- **State Management:** Refs and Custom Hooks (e.g., `useDashboardController`).
+- **Animations:** React Native Reanimated (Layout Animations, Shared Values).
+- **Backend:** Supabase (Auth, Postgres, Edge Functions).
+- **AI:** Google Gemini (via Supabase Edge Functions).
 
-## 5. Expanded Data Model (Supabase)
+## 5. Data Model (Key Entities)
 
-**Table: Agendas**
-* `id` (UUID)
-* `user_id` (UUID - Anonymous or Auth)
-* `type` (Enum: 'numeric', 'boolean')
-* `buffer_tokens_remaining` (Int, default 3)
-* `status` (Active, Completed, Failed)
+- **Agendas:** Goals/Habits with configuration (type, target, priority, buffer tokens).
+- **Daily_Tasks:** Daily instances of Agendas with tracking (actual vs target, status, tags, mood).
+- **Profile/Stats (Metadata):** XP, Level, Unlocked Achievements, Longest Streak.
+- **AI Usage Logs:** Tracking rate limits for AI coaching.
 
-**Table: Daily_Tasks**
-* `id` (UUID)
-* `agenda_id` (FK)
-* `scheduled_date` (Date)
-* `target_val` (Int)
-* `actual_val` (Int)
-* `status` (Enum: 'pending', 'completed', 'partial', 'skipped_with_buffer', 'failed')
-* `failure_tag` (Enum: 'low_energy', 'work', 'health', 'distracted', 'other')
-* `mood_rating` (Int: 1-5)
-* `was_recalculated` (Boolean)
+## 6. Implementation Status (V1.0 Polish)
 
-## 6. User Interface Design Principles
-* **Tag-First Input:** Never force the user to type text on a phone unless they want to.
-* **Warm Tone:** Error messages should sound like a supportive friend, not a system error.
-* **Clear State:** Visually distinguish between a "Buffered Day" (Yellow - Okay!) and a "Missed Day" (Red).
+- [x] **Phase 1: Core UI & Chat** (Complete)
+- [x] **Phase 2: Supabase Integration & Auth** (Complete)
+- [x] **Phase 3: Logic Engines (Recalc/Buffer)** (Complete)
+- [x] **Phase 4: Insights & Gamification** (Complete)
+- [x] **Phase 5: Refactoring & Performance** (Complete - Dashboard Refactor)
+- [ ] **Phase 6: Release & Production Prep** (In Progress)
 
-## 7. Development Phases
+## 7. Next Steps for Release
 
-**Phase 1: The Core (Local)**
-* Initialize Expo.
-* Build the Chat UI to create a local Agenda.
-* Build the Task List with "Quick Tags" for check-ins.
-
-**Phase 2: The Data (Cloud)**
-* Connect Supabase.
-* Implement Anonymous Auth.
-* Sync Agendas and Tasks to the cloud.
-
-**Phase 3: The Logic (Recalc & Buffer)**
-* Implement the math to update future `Daily_Tasks` when a numeric goal is missed.
-* Implement the logic to deduct `buffer_tokens` when a Boolean habit is skipped.
-
-**Phase 4: Insights**
-* Build the Hybrid Report view to visualize the Tags and Progress."
+1. **Test Migration Strategy:** Verify local-to-cloud mapping for guest users.
+2. **Final Edge Function Deployment:** Ensure all secrets (GEMINI_API_KEY) are set in prod.
+3. **Performance Monitoring:** Monitor `FlatList` performance with `getItemLayout`.
+4. **App Store Assets:** Generate screenshots and marketing copy.

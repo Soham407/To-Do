@@ -14,91 +14,74 @@ export interface StreakInfo {
 
 export const calculateStreak = (
   tasks: DailyTask[],
-  agendaId: string
+  agendaId?: string
 ): StreakInfo => {
-  // Sort tasks by date desc
-  const sorted = tasks
-    .filter((t) => t.agendaId === agendaId && t.status !== TaskStatus.PENDING)
-    .sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate));
+  const agendaTasks = agendaId
+    ? tasks.filter((t) => t.agendaId === agendaId)
+    : tasks;
 
-  let current = 0;
-  let longest = 0;
-  let tempLongest = 0;
+  if (agendaTasks.length === 0) return { current: 0, longest: 0 };
 
-  // Basic streak logic: logic depends on gaps.
-  // If we have daily tasks, a missing day breaks the streak.
-  // Ideally we iterate days backwards from today.
+  // Sort tasks by date asc ONCE
+  const sorted = [...agendaTasks].sort((a, b) =>
+    a.scheduledDate.localeCompare(b.scheduledDate)
+  );
 
-  // Allow for today to be pending without breaking streak if yesterday was done?
-  // Current Streak = contiguous days ending yesterday/today.
-
-  const todayStr = getLocalDateString(new Date());
-  const yesterdayStr = getLocalDateString(new Date(Date.now() - 86400000));
-
-  // Map of date -> status
+  // Map of date -> status for O(1) current streak check
   const statusMap = new Map<string, TaskStatus>();
-  tasks
-    .filter((t) => t.agendaId === agendaId)
-    .forEach((t) => statusMap.set(t.scheduledDate, t.status));
+  sorted.forEach((t) => statusMap.set(t.scheduledDate, t.status));
 
-  // 1. Calculate Current Streak
-  let d = new Date();
-  let streak = 0;
-  // Check today
+  // 1. Calculate Current Streak (Iterate backwards from today)
+  let current = 0;
+  const d = new Date();
+
+  // If today is not done, check yesterday. If yesterday is not done, streak is 0.
+  // Exception: If today is still pending, we don't break the streak yet, but it doesn't count towards the streak until finished.
+
   let dateStr = getLocalDateString(d);
   let status = statusMap.get(dateStr);
 
-  // If today is done, start count. If pending, check yesterday.
   if (
     status === TaskStatus.COMPLETED ||
     status === TaskStatus.SKIPPED_WITH_BUFFER
   ) {
-    streak++;
+    current++;
     d.setDate(d.getDate() - 1);
   } else {
-    // Today not done. Check yesterday.
-    d.setDate(d.getDate() - 1); // Move to yesterday
+    // Today not done/pending. Check yesterday.
+    d.setDate(d.getDate() - 1);
   }
 
   while (true) {
     dateStr = getLocalDateString(d);
     status = statusMap.get(dateStr);
 
-    // If no task exists for this day, we stop? Or if the Agenda didn't exist?
-    // Usually finding the task is safer.
-    // If no task record, assume break? Or assumed skipped?
-    // Let's assume break if no record found for a past date when agenda was active.
-    // Simplifying: Just check status map.
-
     if (
       status === TaskStatus.COMPLETED ||
       status === TaskStatus.SKIPPED_WITH_BUFFER
     ) {
-      streak++;
+      current++;
       d.setDate(d.getDate() - 1);
     } else {
       break;
     }
   }
-  current = streak;
 
-  // 2. Calculate Longest Streak (Naive implementation over all history)
-  // Re-sort all tasks by date asc
-  const allTasks = tasks
-    .filter((t) => t.agendaId === agendaId)
-    .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
-
+  // 2. Calculate Longest Streak (Single pass through sorted tasks)
+  let longest = 0;
   let currentRun = 0;
-  allTasks.forEach((t) => {
+  sorted.forEach((t) => {
     if (
       t.status === TaskStatus.COMPLETED ||
       t.status === TaskStatus.SKIPPED_WITH_BUFFER
     ) {
       currentRun++;
-    } else {
+    } else if (t.status !== TaskStatus.PENDING) {
+      // Failed tasks break the historical streak
       longest = Math.max(longest, currentRun);
       currentRun = 0;
     }
+    // Pending tasks are ignored for historical longest streak? Usually yes.
   });
   longest = Math.max(longest, currentRun);
 

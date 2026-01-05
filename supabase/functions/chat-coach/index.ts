@@ -34,7 +34,13 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { messages, availableLists } = await req.json();
+    const {
+      messages,
+      availableLists,
+    }: {
+      messages: { role: string; content: string }[];
+      availableLists: { id: string; name: string }[];
+    } = await req.json();
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(
@@ -68,8 +74,11 @@ Deno.serve(async (req: Request) => {
       existingAgendas && existingAgendas.length > 0
         ? existingAgendas
             .map(
-              (a: any) =>
-                `- ${a.title} (${a.type}: ${a.total_target || "Daily"})`
+              (a: {
+                title: string;
+                type: string;
+                total_target: number | null;
+              }) => `- ${a.title} (${a.type}: ${a.total_target || "Daily"})`
             )
             .join("\n")
         : "The user has no active goals yet.";
@@ -80,7 +89,13 @@ Deno.serve(async (req: Request) => {
       Array.isArray(availableLists) &&
       availableLists.length > 0
         ? availableLists
-            .map((l: any) => `- "${l.name}" (ID: ${l.id})`)
+            .map((l: { id: string; name: string }) => {
+              // FIX: Strip non-alphanumeric chars and limit length to prevent prompt injection
+              const safeName = (l.name || "")
+                .replace(/[^a-zA-Z0-9 ]/g, "")
+                .substring(0, 30);
+              return `- "${safeName}" (ID: ${l.id})`;
+            })
             .join("\n")
         : "No custom lists available.";
 
@@ -177,8 +192,8 @@ ${listContext}
 
     // Map Messages to Gemini
     const geminiContents = messages
-      .filter((m: any) => m.role !== "system")
-      .map((m: any) => ({
+      .filter((m: { role: string; content: string }) => m.role !== "system")
+      .map((m: { role: string; content: string }) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: (m.content || "").substring(0, 2000).trim() }],
       }));
@@ -188,10 +203,13 @@ ${listContext}
 
     const modelName = "gemini-1.5-flash"; // Switched to 1.5 Flash for speed/reliability
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
         body: JSON.stringify({
           contents: geminiContents,
           systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -201,7 +219,7 @@ ${listContext}
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text(); // Keep this line to define errorText
       throw new Error(`Gemini API Error: ${errorText}`);
     }
 

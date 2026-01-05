@@ -74,6 +74,7 @@ const getStyles = (theme: MD3Theme, isDark: boolean, bottomInset: number) =>
     },
     blurWrapper: {
       width: "80%",
+      maxWidth: 400,
       borderRadius: 100,
       overflow: "hidden",
       borderWidth: 1,

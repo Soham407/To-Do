@@ -7,6 +7,7 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  FlatList,
 } from "react-native";
 import SafeModal from "../common/SafeModal";
 import { useTheme } from "../../context/ThemeContext";
@@ -174,9 +175,12 @@ const ListsModal: React.FC<ListsModalProps> = ({
           {!isEditing ? (
             <>
               {/* Lists View */}
-              <ScrollView style={styles.listContainer}>
-                {currentLists.map((list) => (
-                  <View key={list.id} style={styles.listItem}>
+              <FlatList
+                data={currentLists}
+                keyExtractor={(item) => item.id}
+                style={styles.listContainer}
+                renderItem={({ item: list }) => (
+                  <View style={styles.listItem}>
                     <View style={styles.listItemLeft}>
                       <View
                         style={[
@@ -207,8 +211,8 @@ const ListsModal: React.FC<ListsModalProps> = ({
                       </TouchableOpacity>
                     </View>
                   </View>
-                ))}
-              </ScrollView>
+                )}
+              />
 
               {/* Add Button */}
               <TouchableOpacity

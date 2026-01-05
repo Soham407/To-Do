@@ -148,6 +148,7 @@ const GoalTemplatesModal: React.FC<GoalTemplatesModalProps> = ({
                 showsHorizontalScrollIndicator={false}
                 style={styles.categoryScroll}
                 contentContainerStyle={styles.categoryContainer}
+                keyboardShouldPersistTaps="handled"
               >
                 <TouchableOpacity
                   style={[
@@ -190,6 +191,7 @@ const GoalTemplatesModal: React.FC<GoalTemplatesModalProps> = ({
               <ScrollView
                 style={styles.templatesScroll}
                 contentContainerStyle={styles.templatesGrid}
+                keyboardShouldPersistTaps="handled"
               >
                 {filteredTemplates.map((template) => (
                   <TouchableOpacity
@@ -228,7 +230,10 @@ const GoalTemplatesModal: React.FC<GoalTemplatesModalProps> = ({
             </>
           ) : (
             /* Customization View */
-            <ScrollView style={styles.customizeScroll}>
+            <ScrollView
+              style={styles.customizeScroll}
+              keyboardShouldPersistTaps="handled"
+            >
               <View style={styles.previewCard}>
                 <Text style={styles.previewIcon}>{selectedTemplate.icon}</Text>
                 <View>

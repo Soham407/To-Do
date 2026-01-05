@@ -59,7 +59,13 @@ const NumericProgressBar: React.FC<{
   }, [percentage]);
 
   return (
-    <View style={styles.progresBarTrack}>
+    <View
+      style={styles.progresBarTrack}
+      accessible={true}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: percentage }}
+      accessibilityLabel={`${percentage}% completed`}
+    >
       <RNAnimated.View
         style={[
           styles.progressBarFill,

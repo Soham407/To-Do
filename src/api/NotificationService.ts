@@ -140,9 +140,7 @@ export const NotificationService = {
         agenda.recurrenceDays &&
         agenda.recurrenceDays.length > 0
       ) {
-        // Expo needs one notification per weekday.
-        // For this fix, we'll schedule for the first selected day or default to daily if logic gets too complex for the current service structure.
-        // A better fix would be a loop, but let's at least avoid the "Daily for everything" trap.
+        // Expo requires individual scheduling for each day of the week to ensure reliable recurrence.
         await Promise.all(
           agenda.recurrenceDays.map((day) =>
             Notifications.scheduleNotificationAsync({

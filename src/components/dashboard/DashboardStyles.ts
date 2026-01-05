@@ -78,11 +78,11 @@ export const getDashboardStyles = (theme: MD3Theme, isDark: boolean) =>
       fontFamily: Fonts.regular,
     },
     profileBtn: {
-      padding: 8,
+      padding: 12,
       marginLeft: 4,
     },
     coachBtn: {
-      padding: 10,
+      padding: 12,
       backgroundColor: theme.primaryContainer + "40",
       borderRadius: 12,
       borderWidth: 1,

@@ -91,6 +91,8 @@ export default function LoginScreen({ onSignup }: LoginScreenProps) {
             source={require("../../../assets/adaptive-icon.png")}
             style={styles.logo}
             resizeMode="contain"
+            accessibilityRole="image"
+            accessibilityLabel="Goal Coach Logo"
           />
         </View>
         <Text style={[styles.title, { color: theme.onBackground }]}>
@@ -216,7 +218,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
-    height: 56,
+    minHeight: 56,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,

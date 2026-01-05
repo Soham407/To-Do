@@ -1,46 +1,14 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   FlatList,
-  Dimensions,
-  Animated as RNAnimated,
-  TextInput,
-  Platform,
 } from "react-native";
-import { BlurView } from "expo-blur";
-import Animated, {
-  FadeInDown,
-  FadeOutUp,
-  Layout as ReanimatedLayout,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
-import {
-  ChevronDown,
-  ChevronUp,
-  Calendar as CalendarIcon,
-  Sparkles,
-  UserCircle,
-  List as ListIcon,
-  KanbanSquare,
-  Plus,
-  MessageCircle,
-  Zap,
-  FolderOpen,
-} from "lucide-react-native";
-import {
-  Agenda,
-  DailyTask,
-  TaskStatus,
-  Priority,
-  List,
-  DEFAULT_LISTS,
-} from "../types";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { Sparkles } from "lucide-react-native";
+import { Agenda, DailyTask, TaskStatus, Priority, List } from "../types";
 import CheckInModal from "../components/modals/CheckInModal";
 import CalendarModal from "../components/modals/CalendarModal";
 import GoalSettingsModal from "../components/modals/GoalSettingsModal";
@@ -48,16 +16,15 @@ import ProfileModal from "../components/modals/ProfileModal";
 import QuickAddModal from "../components/modals/QuickAddModal";
 import CoachChatModal from "../components/modals/CoachChatModal";
 import GoalTemplatesModal from "../components/modals/GoalTemplatesModal";
-import { getLocalDateString, parseLocalIsoDate } from "../utils/logic";
+import ListsModal from "../components/modals/ListsModal";
+import { getLocalDateString } from "../utils/logic";
 import { useTheme } from "../context/ThemeContext";
-import { SPRING_CONFIG } from "../utils/animations";
-import { calculateStreak, StreakInfo } from "../utils/insightsLogic";
 import { getDashboardStyles } from "../components/dashboard/DashboardStyles";
 import TaskCard from "../components/dashboard/TaskCard";
-import ProgressOverview from "../components/dashboard/ProgressOverview";
-import ListsFilterBar from "../components/dashboard/ListsFilterBar";
-import ListsModal from "../components/modals/ListsModal";
 import KanbanSection from "../components/dashboard/KanbanSection";
+import DashboardHeader from "../components/dashboard/DashboardHeader";
+import DashboardFAB from "../components/dashboard/DashboardFAB";
+import { useDashboardController } from "../hooks/useDashboardController";
 
 interface DashboardProps {
   agendas: Agenda[];
@@ -94,313 +61,77 @@ const Dashboard: React.FC<DashboardProps> = ({
     () => getDashboardStyles(theme, isDark),
     [theme, isDark]
   );
-  const [selectedTask, setSelectedTask] = useState<DailyTask | null>(null);
-  const [selectedAgenda, setSelectedAgenda] = useState<Agenda | null>(null);
-  const [settingsAgenda, setSettingsAgenda] = useState<Agenda | null>(null);
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
-  const [isListsOpen, setIsListsOpen] = useState(false);
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(
-    getLocalDateString()
-  );
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isCoachChatOpen, setIsCoachChatOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"LIST" | "BOARD">("LIST");
-  const [searchText, setSearchText] = useState("");
-  const [activeFilter, setActiveFilter] = useState<
-    "All" | "Today" | "Upcoming" | "Overdue" | "High Priority"
-  >("All");
-  const [expandedSections, setExpandedSections] = useState<
-    Record<string, boolean>
-  >({
-    "Not Done": true,
-    Done: false,
-  });
 
-  // Pre-compute agenda map for O(1) lookups
-  const agendaMap = useMemo(() => {
-    return new Map(agendas.map((a) => [a.id, a]));
-  }, [agendas]);
-
-  // Memoize streak calculations to avoid recalculating per-card
-  const streakMap = useMemo(() => {
-    const map = new Map<string, StreakInfo>();
-    agendas.forEach((a) => {
-      map.set(a.id, calculateStreak(tasks, a.id));
-    });
-    return map;
-  }, [tasks, agendas]);
-
-  const localTasks = useMemo(() => {
-    let filtered = tasks.filter((t) =>
-      agendas.some((a) => a.id === t.agendaId)
-    );
-    const todayStr = getLocalDateString();
-
-    if (activeFilter === "Today") {
-      filtered = filtered.filter((t) => t.scheduledDate === todayStr);
-    } else if (activeFilter === "Upcoming") {
-      filtered = filtered.filter((t) => t.scheduledDate > todayStr);
-    } else if (activeFilter === "Overdue") {
-      filtered = filtered.filter(
-        (t) => t.scheduledDate < todayStr && t.status === TaskStatus.PENDING
-      );
-    } else if (activeFilter === "High Priority") {
-      filtered = filtered.filter((t) => {
-        const ag = agendas.find((a) => a.id === t.agendaId);
-        return ag?.priority === "HIGH" && t.status === TaskStatus.PENDING;
-      });
-    }
-
-    if (!searchText && (activeFilter === "All" || activeFilter === "Today")) {
-      filtered = filtered.filter((t) => t.scheduledDate === selectedDate);
-    }
-
-    if (searchText.trim()) {
-      const lower = searchText.toLowerCase();
-      filtered = filtered.filter((t) => {
-        const ag = agendaMap.get(t.agendaId);
-        const agendaMatch = ag?.title.toLowerCase().includes(lower);
-        const noteMatch = t.note?.toLowerCase().includes(lower);
-        return agendaMatch || noteMatch;
-      });
-    }
-
-    // Filter by selected list
-    if (selectedListId) {
-      filtered = filtered.filter((t) => {
-        const ag = agendaMap.get(t.agendaId);
-        return ag?.listId === selectedListId;
-      });
-    }
-
-    return filtered.sort((a, b) => {
-      const statusScore = (status: TaskStatus) =>
-        status === TaskStatus.PENDING ? 0 : 1;
-      if (statusScore(a.status) !== statusScore(b.status))
-        return statusScore(a.status) - statusScore(b.status);
-
-      const agendaA = agendaMap.get(a.agendaId);
-      const agendaB = agendaMap.get(b.agendaId);
-      const priorityScore = (p?: string) =>
-        p === "HIGH" ? 3 : p === "LOW" ? 1 : 2;
-
-      const scoreA = priorityScore(agendaA?.priority);
-      const scoreB = priorityScore(agendaB?.priority);
-      if (scoreA !== scoreB) return scoreB - scoreA;
-
-      return a.scheduledDate.localeCompare(b.scheduledDate);
-    });
-  }, [
-    tasks,
-    selectedDate,
-    agendas,
-    searchText,
-    activeFilter,
-    agendaMap,
+  const {
+    selectedTask,
+    setSelectedTask,
+    selectedAgenda,
+    setSelectedAgenda,
+    settingsAgenda,
+    setSettingsAgenda,
+    isQuickAddOpen,
+    setIsQuickAddOpen,
+    isTemplatesOpen,
+    setIsTemplatesOpen,
+    isListsOpen,
+    setIsListsOpen,
     selectedListId,
-  ]);
+    setSelectedListId,
+    selectedDate,
+    setSelectedDate,
+    isCalendarOpen,
+    setIsCalendarOpen,
+    isProfileOpen,
+    setIsProfileOpen,
+    isCoachChatOpen,
+    setIsCoachChatOpen,
+    viewMode,
+    setViewMode,
+    searchText,
+    setSearchText,
+    activeFilter,
+    setActiveFilter,
+    expandedSections,
+    setExpandedSections,
+    agendaMap,
+    streakMap,
+    localTasks,
+    goalCounts,
+    fabScale,
+    formattedDate,
+    handleTaskClick,
+    handleQuickToggle,
+  } = useDashboardController({ agendas, tasks, onUpdateTask });
 
-  // Compute goal counts per list
-  const goalCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    agendas.forEach((a) => {
-      if (a.listId) {
-        counts[a.listId] = (counts[a.listId] || 0) + 1;
-      }
-    });
-    return counts;
-  }, [agendas]);
-
-  const fabScale = useSharedValue(1);
-
-  useEffect(() => {
-    if (viewMode === "LIST" && localTasks.length === 0 && agendas.length > 0) {
-      fabScale.value = withSpring(1.1, {
-        damping: 2,
-        stiffness: 150,
-        mass: 0.5,
-      });
-    } else {
-      fabScale.value = withSpring(1, SPRING_CONFIG);
-    }
-  }, [viewMode, localTasks.length, agendas.length]);
-
-  const handleTaskClick = (task: DailyTask) => {
-    const agenda = agendas.find((a) => a.id === task.agendaId);
-    if (agenda) {
-      setSelectedTask(task);
-      setSelectedAgenda(agenda);
-    }
-  };
-
-  const handleQuickToggle = (task: DailyTask) => {
-    const newStatus =
-      task.status === TaskStatus.COMPLETED
-        ? TaskStatus.PENDING
-        : TaskStatus.COMPLETED;
-    onUpdateTask({ ...task, status: newStatus });
-  };
-
-  const formattedDate = useMemo(() => {
-    try {
-      const dateObj = parseLocalIsoDate(selectedDate);
-      if (isNaN(dateObj.getTime())) throw new Error("Invalid Date");
-
-      return dateObj.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-      });
-    } catch (e) {
-      return "Selected Date";
-    }
-  }, [selectedDate]);
+  const ITEM_HEIGHT = 100; // Estimated height for task cards
 
   return (
     <View style={styles.container}>
-      <BlurView
-        intensity={Platform.OS === "ios" ? 40 : 60}
-        tint={isDark ? "dark" : "light"}
-        style={styles.headerWrapper}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => setIsCalendarOpen(true)}
-            style={styles.dateSelector}
-          >
-            <Text style={styles.dateSubtext}>
-              {formattedDate}{" "}
-              <ChevronDown size={16} color={theme.onSurfaceVariant} />
-            </Text>
-            <Text style={styles.dateTitle}>
-              {selectedDate === getLocalDateString() ? "Today" : "Your Plan"}
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              onPress={() => setIsTemplatesOpen(true)}
-              style={[
-                styles.coachBtn,
-                {
-                  backgroundColor: theme.secondaryContainer + "40",
-                  borderColor: theme.secondary + "30",
-                },
-              ]}
-              accessibilityLabel="Quick start templates"
-              accessibilityRole="button"
-            >
-              <Zap size={20} color={theme.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setIsListsOpen(true)}
-              style={[
-                styles.coachBtn,
-                {
-                  backgroundColor: theme.tertiaryContainer + "40",
-                  borderColor: theme.tertiary + "30",
-                },
-              ]}
-              accessibilityLabel="Manage lists"
-              accessibilityRole="button"
-            >
-              <FolderOpen size={20} color={theme.tertiary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setIsCoachChatOpen(true)}
-              style={styles.coachBtn}
-              accessibilityLabel="AI Coach"
-              accessibilityRole="button"
-            >
-              <Sparkles size={22} color={theme.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setIsProfileOpen(true)}
-              style={styles.profileBtn}
-              accessibilityLabel="Profile settings"
-              accessibilityRole="button"
-            >
-              <UserCircle size={32} color={theme.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search tasks..."
-            placeholderTextColor={theme.onSurfaceVariant}
-            value={searchText}
-            onChangeText={setSearchText}
-          />
-        </View>
-
-        <View style={styles.filterContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filterScroll}
-            contentContainerStyle={styles.filterScrollContainer}
-          >
-            {(
-              ["All", "Today", "Upcoming", "Overdue", "High Priority"] as const
-            ).map((f) => (
-              <TouchableOpacity
-                key={f}
-                style={[
-                  styles.filterChip,
-                  activeFilter === f && styles.filterChipActive,
-                  { marginRight: 8 },
-                ]}
-                onPress={() => {
-                  setActiveFilter(f);
-                  if (f === "Today") setSelectedDate(getLocalDateString());
-                }}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    activeFilter === f && styles.filterTextActive,
-                  ]}
-                >
-                  {f}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity
-            style={styles.viewToggleBtn}
-            onPress={() => setViewMode(viewMode === "LIST" ? "BOARD" : "LIST")}
-            accessibilityLabel={
-              viewMode === "LIST"
-                ? "Switch to board view"
-                : "Switch to list view"
-            }
-          >
-            {viewMode === "LIST" ? (
-              <KanbanSquare size={20} color={theme.onSurfaceVariant} />
-            ) : (
-              <ListIcon size={20} color={theme.onSurfaceVariant} />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Progress Overview - Only show on Today filter */}
-        {activeFilter === "Today" && (
-          <ProgressOverview tasks={tasks} agendas={agendas} theme={theme} />
-        )}
-
-        {/* Lists Filter Bar */}
-        <ListsFilterBar
-          lists={lists}
-          selectedListId={selectedListId}
-          onSelectList={setSelectedListId}
-          theme={theme}
-          goalCounts={goalCounts}
-        />
-      </BlurView>
+      <DashboardHeader
+        theme={theme}
+        isDark={isDark}
+        styles={styles}
+        formattedDate={formattedDate}
+        selectedDate={selectedDate}
+        searchText={searchText}
+        setSearchText={setSearchText}
+        activeFilter={activeFilter}
+        setActiveFilter={setActiveFilter}
+        setSelectedDate={setSelectedDate}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        setIsCalendarOpen={setIsCalendarOpen}
+        setIsTemplatesOpen={setIsTemplatesOpen}
+        setIsListsOpen={setIsListsOpen}
+        setIsCoachChatOpen={setIsCoachChatOpen}
+        setIsProfileOpen={setIsProfileOpen}
+        tasks={tasks}
+        agendas={agendas}
+        lists={lists}
+        selectedListId={selectedListId}
+        setSelectedListId={setSelectedListId}
+        goalCounts={goalCounts}
+      />
 
       <View style={styles.listContainer}>
         <View
@@ -450,6 +181,11 @@ const Dashboard: React.FC<DashboardProps> = ({
               maxToRenderPerBatch={10}
               windowSize={5}
               initialNumToRender={10}
+              getItemLayout={(_, index) => ({
+                length: ITEM_HEIGHT,
+                offset: ITEM_HEIGHT * index,
+                index,
+              })}
               renderItem={({ item, index }) => {
                 const agenda = agendaMap.get(item.agendaId);
                 if (!agenda) return null;
@@ -586,26 +322,12 @@ const Dashboard: React.FC<DashboardProps> = ({
         />
       )}
 
-      <Animated.View style={[styles.fab, { transform: [{ scale: fabScale }] }]}>
-        <TouchableOpacity
-          style={{
-            width: "100%",
-            height: "100%",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-          onPress={() => setIsQuickAddOpen(true)}
-          onPressIn={() => {
-            fabScale.value = withSpring(0.9, SPRING_CONFIG);
-          }}
-          onPressOut={() => {
-            fabScale.value = withSpring(1, SPRING_CONFIG);
-          }}
-          activeOpacity={1}
-        >
-          <Plus size={32} color={theme.onPrimaryContainer} />
-        </TouchableOpacity>
-      </Animated.View>
+      <DashboardFAB
+        fabScale={fabScale}
+        theme={theme}
+        styles={styles}
+        onPress={() => setIsQuickAddOpen(true)}
+      />
     </View>
   );
 };
