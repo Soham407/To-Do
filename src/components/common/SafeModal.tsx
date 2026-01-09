@@ -10,10 +10,6 @@ interface Props {
   onClose: () => void;
   animationType?: "none" | "slide" | "fade";
   fullScreen?: boolean;
-  /**
-   * When true, content is positioned at the bottom of the screen (for bottom sheets).
-   * On Expo Go, this ensures proper positioning instead of (0,0).
-   */
   bottomSheet?: boolean;
 }
 
@@ -24,8 +20,8 @@ interface State {
 
 /**
  * SafeModal wraps a Modal with error boundary protection.
- * If an error occurs inside the modal, it shows a friendly error UI
- * instead of crashing the entire app.
+ * It provides a transparent full-screen container, allowing children
+ * to handle their own layout (centering, background color, etc.).
  */
 class SafeModal extends React.Component<Props, State> {
   constructor(props: Props) {
@@ -44,7 +40,6 @@ class SafeModal extends React.Component<Props, State> {
     console.error("SafeModal caught an error:", error, errorInfo);
   }
 
-  // Reset error state when modal is reopened
   componentDidUpdate(prevProps: Props) {
     if (!prevProps.visible && this.props.visible && this.state.hasError) {
       this.setState({ hasError: false, error: null });
@@ -62,28 +57,20 @@ class SafeModal extends React.Component<Props, State> {
       onClose,
       animationType = "fade",
       fullScreen = false,
-      bottomSheet = false,
     } = this.props;
     const { hasError, error } = this.state;
-
-    // Determine the content style based on modal type
-    const getContentStyle = () => {
-      if (fullScreen) return styles.fullScreenContent;
-      if (bottomSheet) return styles.bottomSheetContent;
-      return styles.modalContent;
-    };
 
     return (
       <Modal
         visible={visible}
         animationType={animationType}
-        transparent={!fullScreen}
+        // Always strictly transparent so children can manage the overlay look
+        transparent={true} 
         onRequestClose={onClose}
+        statusBarTranslucent={true}
       >
         {hasError ? (
-          <View
-            style={[styles.errorOverlay, fullScreen && styles.fullScreenError]}
-          >
+          <View style={styles.errorOverlay}>
             <View style={styles.errorCard}>
               <View style={styles.iconContainer}>
                 <AlertTriangle size={40} color="#F44336" />
@@ -115,13 +102,9 @@ class SafeModal extends React.Component<Props, State> {
             </View>
           </View>
         ) : (
-          <View
-            key={visible ? "visible" : "hidden"}
-            style={[
-              getContentStyle(),
-              { flex: 1 }, // Ensure it always tries to fill available space
-            ]}
-          >
+          // FIX: Simple flex: 1 container ensures children can fill the screen
+          // without imposing alignment or background color.
+          <View style={{ flex: 1 }}>
             {children}
           </View>
         )}
@@ -138,9 +121,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     padding: 24,
     zIndex: Z_INDEX.MODAL_BACKDROP,
-  },
-  fullScreenError: {
-    backgroundColor: MD3LightTheme.background,
   },
   errorCard: {
     backgroundColor: MD3LightTheme.surface,
@@ -218,27 +198,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Fonts.medium,
     color: "#FFFFFF",
-  },
-  // CRITICAL: These styles ensure proper layout on Expo Go (native)
-  // On Android, Modal's internal container is NOT a flex container,
-  // so flex: 1 does NOT expand to fill the screen. We MUST use
-  // StyleSheet.absoluteFillObject to force the wrapper to fill the Modal.
-  fullScreenContent: {
-    flex: 1, // fullScreen modals have transparent=false, so flex works
-  },
-  modalContent: {
-    // absoluteFillObject = { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }
-    // This forces the View to fill the entire Modal on both Android and iOS
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // Backdrop for centered modals
-  },
-  // For bottom sheet modals - positions content at bottom with semi-transparent backdrop
-  bottomSheetContent: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "flex-end" as const,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
 });
 
