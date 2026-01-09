@@ -118,45 +118,47 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
 
   return (
     <ToastContext.Provider value={{ showToast }}>
-      {children}
-      {visible && toast && (
-        <Animated.View
-          style={[
-            styles.container,
-            {
-              transform: [{ translateY }],
-              opacity,
-            },
-          ]}
-          accessibilityRole="alert"
-          accessibilityLiveRegion="polite"
-        >
-          <View style={styles.content}>
-            <View style={styles.iconContainer}>{getIcon()}</View>
-            <Text style={styles.message} numberOfLines={2}>
-              {toast.message}
-            </Text>
-            {toast.action && (
+      <View style={{ flex: 1 }}>
+        {children}
+        {visible && toast && (
+          <Animated.View
+            style={[
+              styles.container,
+              {
+                transform: [{ translateY }],
+                opacity,
+              },
+            ]}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            <View style={styles.content}>
+              <View style={styles.iconContainer}>{getIcon()}</View>
+              <Text style={styles.message} numberOfLines={2}>
+                {toast.message}
+              </Text>
+              {toast.action && (
+                <TouchableOpacity
+                  onPress={() => {
+                    toast.action?.onPress();
+                    hideToast();
+                  }}
+                  style={styles.actionButton}
+                >
+                  <Text style={styles.actionText}>{toast.action.label}</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                onPress={() => {
-                  toast.action?.onPress();
-                  hideToast();
-                }}
-                style={styles.actionButton}
+                onPress={hideToast}
+                style={styles.closeButton}
+                accessibilityLabel="Dismiss notification"
               >
-                <Text style={styles.actionText}>{toast.action.label}</Text>
+                <X size={16} color={theme.onSurfaceVariant} />
               </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={hideToast}
-              style={styles.closeButton}
-              accessibilityLabel="Dismiss notification"
-            >
-              <X size={16} color={theme.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      )}
+            </View>
+          </Animated.View>
+        )}
+      </View>
     </ToastContext.Provider>
   );
 };

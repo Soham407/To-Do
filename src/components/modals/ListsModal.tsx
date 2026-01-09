@@ -147,181 +147,184 @@ const ListsModal: React.FC<ListsModalProps> = ({
   };
 
   return (
-    <SafeModal visible={isOpen} animationType="slide" onClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Folder size={24} color={theme.primary} />
-              <Text style={styles.headerTitle}>
-                {isEditing
-                  ? editingList
-                    ? "Edit List"
-                    : "New List"
-                  : "Manage Lists"}
-              </Text>
-            </View>
+    <SafeModal
+      visible={isOpen}
+      animationType="slide"
+      onClose={onClose}
+      bottomSheet
+    >
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Folder size={24} color={theme.primary} />
+            <Text style={styles.headerTitle}>
+              {isEditing
+                ? editingList
+                  ? "Edit List"
+                  : "New List"
+                : "Manage Lists"}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={isEditing ? handleCancel : onClose}
+            style={styles.closeBtn}
+            accessibilityLabel="Close"
+            accessibilityRole="button"
+          >
+            <X size={24} color={theme.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
+
+        {!isEditing ? (
+          <>
+            {/* Lists View */}
+            <FlatList
+              data={currentLists}
+              keyExtractor={(item) => item.id}
+              style={styles.listContainer}
+              renderItem={({ item: list }) => (
+                <View style={styles.listItem}>
+                  <View style={styles.listItemLeft}>
+                    <View
+                      style={[
+                        styles.listIcon,
+                        { backgroundColor: list.color + "20" },
+                      ]}
+                    >
+                      <Text style={styles.listEmoji}>{list.icon}</Text>
+                    </View>
+                    <Text style={styles.listName}>{list.name}</Text>
+                  </View>
+                  <View style={styles.listItemActions}>
+                    <TouchableOpacity
+                      onPress={() => handleEdit(list)}
+                      style={styles.actionBtn}
+                      accessibilityLabel={`Edit ${list.name}`}
+                      accessibilityRole="button"
+                    >
+                      <Edit2 size={18} color={theme.onSurfaceVariant} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDelete(list)}
+                      style={styles.actionBtn}
+                      accessibilityLabel={`Delete ${list.name}`}
+                      accessibilityRole="button"
+                    >
+                      <Trash2 size={18} color={theme.error} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
+
+            {/* Add Button */}
             <TouchableOpacity
-              onPress={isEditing ? handleCancel : onClose}
-              style={styles.closeBtn}
-              accessibilityLabel="Close"
+              style={styles.addButton}
+              onPress={handleAddNew}
+              accessibilityLabel="Add new list"
               accessibilityRole="button"
             >
-              <X size={24} color={theme.onSurfaceVariant} />
+              <Plus size={20} color={theme.onPrimary} />
+              <Text style={styles.addButtonText}>Add New List</Text>
             </TouchableOpacity>
-          </View>
-
-          {!isEditing ? (
-            <>
-              {/* Lists View */}
-              <FlatList
-                data={currentLists}
-                keyExtractor={(item) => item.id}
-                style={styles.listContainer}
-                renderItem={({ item: list }) => (
-                  <View style={styles.listItem}>
-                    <View style={styles.listItemLeft}>
-                      <View
-                        style={[
-                          styles.listIcon,
-                          { backgroundColor: list.color + "20" },
-                        ]}
-                      >
-                        <Text style={styles.listEmoji}>{list.icon}</Text>
-                      </View>
-                      <Text style={styles.listName}>{list.name}</Text>
-                    </View>
-                    <View style={styles.listItemActions}>
-                      <TouchableOpacity
-                        onPress={() => handleEdit(list)}
-                        style={styles.actionBtn}
-                        accessibilityLabel={`Edit ${list.name}`}
-                        accessibilityRole="button"
-                      >
-                        <Edit2 size={18} color={theme.onSurfaceVariant} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleDelete(list)}
-                        style={styles.actionBtn}
-                        accessibilityLabel={`Delete ${list.name}`}
-                        accessibilityRole="button"
-                      >
-                        <Trash2 size={18} color={theme.error} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
+          </>
+        ) : (
+          /* Edit/Create View */
+          <ScrollView style={styles.editContainer}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>List Name</Text>
+              <TextInput
+                style={styles.input}
+                value={newName}
+                onChangeText={setNewName}
+                placeholder="e.g., Fitness, Learning"
+                placeholderTextColor={theme.onSurfaceVariant}
+                autoFocus
               />
+            </View>
 
-              {/* Add Button */}
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={handleAddNew}
-                accessibilityLabel="Add new list"
-                accessibilityRole="button"
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Icon</Text>
+              <View style={styles.optionsGrid}>
+                {EMOJI_OPTIONS.map((emoji) => (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={[
+                      styles.emojiOption,
+                      selectedIcon === emoji && {
+                        backgroundColor: selectedColor + "30",
+                        borderColor: selectedColor,
+                      },
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSelectedIcon(emoji);
+                    }}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Color</Text>
+              <View style={styles.optionsGrid}>
+                {COLOR_OPTIONS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorOption,
+                      { backgroundColor: color },
+                      selectedColor === color && styles.colorOptionSelected,
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSelectedColor(color);
+                    }}
+                  >
+                    {selectedColor === color && (
+                      <Check size={16} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Preview */}
+            <View style={styles.previewContainer}>
+              <Text style={styles.inputLabel}>Preview</Text>
+              <View
+                style={[
+                  styles.previewChip,
+                  {
+                    backgroundColor: selectedColor + "20",
+                    borderColor: selectedColor,
+                  },
+                ]}
               >
-                <Plus size={20} color={theme.onPrimary} />
-                <Text style={styles.addButtonText}>Add New List</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            /* Edit/Create View */
-            <ScrollView style={styles.editContainer}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>List Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newName}
-                  onChangeText={setNewName}
-                  placeholder="e.g., Fitness, Learning"
-                  placeholderTextColor={theme.onSurfaceVariant}
-                  autoFocus
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Icon</Text>
-                <View style={styles.optionsGrid}>
-                  {EMOJI_OPTIONS.map((emoji) => (
-                    <TouchableOpacity
-                      key={emoji}
-                      style={[
-                        styles.emojiOption,
-                        selectedIcon === emoji && {
-                          backgroundColor: selectedColor + "30",
-                          borderColor: selectedColor,
-                        },
-                      ]}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setSelectedIcon(emoji);
-                      }}
-                    >
-                      <Text style={styles.emojiText}>{emoji}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Color</Text>
-                <View style={styles.optionsGrid}>
-                  {COLOR_OPTIONS.map((color) => (
-                    <TouchableOpacity
-                      key={color}
-                      style={[
-                        styles.colorOption,
-                        { backgroundColor: color },
-                        selectedColor === color && styles.colorOptionSelected,
-                      ]}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setSelectedColor(color);
-                      }}
-                    >
-                      {selectedColor === color && (
-                        <Check size={16} color="#FFFFFF" />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Preview */}
-              <View style={styles.previewContainer}>
-                <Text style={styles.inputLabel}>Preview</Text>
-                <View
-                  style={[
-                    styles.previewChip,
-                    {
-                      backgroundColor: selectedColor + "20",
-                      borderColor: selectedColor,
-                    },
-                  ]}
-                >
-                  <Text style={styles.previewEmoji}>{selectedIcon}</Text>
-                  <Text style={[styles.previewText, { color: selectedColor }]}>
-                    {newName || "List Name"}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Save Button */}
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: selectedColor }]}
-                onPress={handleSave}
-                accessibilityLabel="Save list"
-                accessibilityRole="button"
-              >
-                <Check size={20} color="#FFFFFF" />
-                <Text style={styles.saveButtonText}>
-                  {editingList ? "Save Changes" : "Create List"}
+                <Text style={styles.previewEmoji}>{selectedIcon}</Text>
+                <Text style={[styles.previewText, { color: selectedColor }]}>
+                  {newName || "List Name"}
                 </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          )}
-        </View>
+              </View>
+            </View>
+
+            {/* Save Button */}
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: selectedColor }]}
+              onPress={handleSave}
+              accessibilityLabel="Save list"
+              accessibilityRole="button"
+            >
+              <Check size={20} color="#FFFFFF" />
+              <Text style={styles.saveButtonText}>
+                {editingList ? "Save Changes" : "Create List"}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
       </View>
     </SafeModal>
   );
@@ -329,11 +332,6 @@ const ListsModal: React.FC<ListsModalProps> = ({
 
 const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.5)",
-      justifyContent: "flex-end",
-    },
     container: {
       backgroundColor: theme.surface,
       borderTopLeftRadius: 28,

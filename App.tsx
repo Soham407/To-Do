@@ -64,20 +64,26 @@ class ErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <SafeAreaProvider>
-          <Layout showNav={false} activeTab="dashboard" onTabChange={() => {}}>
-            <DashboardScreen
-              agendas={[]}
-              tasks={[]}
-              onUpdateTask={() => {}}
-              onNewGoal={() => {}}
-              onUpdateAgenda={() => {}}
-              onDeleteAgenda={() => {}}
-              onCreateTask={() => {}}
-              onCreateGoal={() => {}}
-              lists={[]}
-              onUpdateLists={() => {}}
-            />
-          </Layout>
+          <ToastProvider>
+            <Layout
+              showNav={false}
+              activeTab="dashboard"
+              onTabChange={() => {}}
+            >
+              <DashboardScreen
+                agendas={[]}
+                tasks={[]}
+                onUpdateTask={() => {}}
+                onNewGoal={() => {}}
+                onUpdateAgenda={() => {}}
+                onDeleteAgenda={() => {}}
+                onCreateTask={() => {}}
+                onCreateGoal={() => {}}
+                lists={[]}
+                onUpdateLists={() => {}}
+              />
+            </Layout>
+          </ToastProvider>
         </SafeAreaProvider>
       );
     }
@@ -109,9 +115,7 @@ export default function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
-          <ToastProvider>
-            <MainApp />
-          </ToastProvider>
+          <MainApp />
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
@@ -515,14 +519,16 @@ function MainApp() {
 
   return (
     <SafeAreaProvider>
-      <Layout
-        activeTab={view}
-        onTabChange={setView}
-        showNav={agendas.length > 0 && view !== "onboarding"}
-      >
-        {renderContent()}
-      </Layout>
-      <StatusBar style="auto" />
+      <ToastProvider>
+        <Layout
+          activeTab={view}
+          onTabChange={setView}
+          showNav={agendas.length > 0 && view !== "onboarding"}
+        >
+          {renderContent()}
+        </Layout>
+        <StatusBar style="auto" />
+      </ToastProvider>
     </SafeAreaProvider>
   );
 }

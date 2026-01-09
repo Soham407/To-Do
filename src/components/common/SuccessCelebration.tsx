@@ -138,6 +138,8 @@ const SuccessCelebration: React.FC<SuccessCelebrationProps> = ({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
+    width,
+    height,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.6)",

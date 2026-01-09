@@ -47,32 +47,30 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
 
   return (
     <SafeModal visible={isOpen} onClose={onClose} animationType="fade">
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Select Date</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={24} color={theme.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-
-          <Calendar
-            current={selectedDate}
-            onDayPress={(day: DateData) => {
-              onSelectDate(day.dateString);
-              onClose();
-            }}
-            markedDates={{
-              [selectedDate]: {
-                selected: true,
-                disableTouchEvent: true,
-                selectedColor: theme.primary,
-              },
-            }}
-            theme={calendarTheme}
-            key={isDark ? "dark" : "light"}
-          />
+      <View style={styles.modalView}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Select Date</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <X size={24} color={theme.onSurfaceVariant} />
+          </TouchableOpacity>
         </View>
+
+        <Calendar
+          current={selectedDate}
+          onDayPress={(day: DateData) => {
+            onSelectDate(day.dateString);
+            onClose();
+          }}
+          markedDates={{
+            [selectedDate]: {
+              selected: true,
+              disableTouchEvent: true,
+              selectedColor: theme.primary,
+            },
+          }}
+          theme={calendarTheme}
+          key={isDark ? "dark" : "light"}
+        />
       </View>
     </SafeModal>
   );
@@ -80,12 +78,6 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
 
 const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
-    centeredView: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: "rgba(0,0,0,0.5)",
-    },
     modalView: {
       backgroundColor: theme.surface,
       borderRadius: 28,

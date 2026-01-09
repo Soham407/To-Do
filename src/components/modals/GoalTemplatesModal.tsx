@@ -116,10 +116,15 @@ const GoalTemplatesModal: React.FC<GoalTemplatesModalProps> = ({
   };
 
   return (
-    <SafeModal visible={isOpen} animationType="slide" onClose={resetAndClose}>
+    <SafeModal
+      visible={isOpen}
+      animationType="slide"
+      onClose={resetAndClose}
+      bottomSheet
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.overlay}
+        style={styles.keyboardView}
       >
         <View style={styles.container}>
           {/* Header */}
@@ -334,10 +339,9 @@ const GoalTemplatesModal: React.FC<GoalTemplatesModalProps> = ({
 
 const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
-    overlay: {
+    keyboardView: {
       flex: 1,
-      backgroundColor: "rgba(0,0,0,0.5)",
-      justifyContent: "flex-end",
+      justifyContent: "flex-end", // Keep content at bottom within bottomSheet
     },
     container: {
       backgroundColor: theme.surface,

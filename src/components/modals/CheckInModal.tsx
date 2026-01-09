@@ -318,203 +318,201 @@ const CheckInModal: React.FC<Props> = ({
 
   return (
     <SafeModal visible={isOpen} onClose={onClose} animationType="fade">
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View>
-                <Text style={styles.title}>{agenda.title}</Text>
-                <Text style={styles.subtitle}>
-                  Target:{" "}
-                  <Text style={{ fontWeight: "bold" }}>
-                    {task.targetVal} {agenda.unit || "units"}
-                  </Text>
+      <View style={styles.modalView}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>{agenda.title}</Text>
+              <Text style={styles.subtitle}>
+                Target:{" "}
+                <Text style={{ fontWeight: "bold" }}>
+                  {task.targetVal} {agenda.unit || "units"}
                 </Text>
-              </View>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 16 }}
-              >
-                {onDeleteAgenda && (
-                  <TouchableOpacity
-                    onPress={handleDeleteOneOff}
-                    style={{ padding: 10 }}
-                    accessibilityLabel="Delete task"
-                    accessibilityRole="button"
-                  >
-                    <Trash size={20} color={theme.error} />
-                  </TouchableOpacity>
-                )}
+              </Text>
+            </View>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 16 }}
+            >
+              {onDeleteAgenda && (
                 <TouchableOpacity
-                  onPress={onClose}
-                  style={styles.closeBtn}
-                  accessibilityLabel="Close modal"
+                  onPress={handleDeleteOneOff}
+                  style={{ padding: 10 }}
+                  accessibilityLabel="Delete task"
                   accessibilityRole="button"
                 >
-                  <X size={24} color={theme.onSurfaceVariant} />
+                  <Trash size={20} color={theme.error} />
                 </TouchableOpacity>
-              </View>
+              )}
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                accessibilityLabel="Close modal"
+                accessibilityRole="button"
+              >
+                <X size={24} color={theme.onSurfaceVariant} />
+              </TouchableOpacity>
             </View>
+          </View>
 
-            {/* Input Section */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Actual Achievement</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="numeric"
-                  value={val}
-                  onChangeText={setVal}
-                  placeholder="0"
-                  placeholderTextColor={theme.onSurfaceVariant + "80"}
-                  autoFocus
-                  accessibilityLabel={`Actual achievement in ${
-                    agenda.unit || "units"
-                  }`}
-                  accessibilityHint={`Enter the amount you achieved. Target is ${target}`}
-                />
-                <Text style={styles.unitText}>{agenda.unit || "units"}</Text>
-              </View>
+          {/* Input Section */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Actual Achievement</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={val}
+                onChangeText={setVal}
+                placeholder="0"
+                placeholderTextColor={theme.onSurfaceVariant + "80"}
+                autoFocus
+                accessibilityLabel={`Actual achievement in ${
+                  agenda.unit || "units"
+                }`}
+                accessibilityHint={`Enter the amount you achieved. Target is ${target}`}
+              />
+              <Text style={styles.unitText}>{agenda.unit || "units"}</Text>
             </View>
+          </View>
 
-            {/* Subtasks Section for One-Off Tasks (or any task technically) */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Checklist</Text>
+          {/* Subtasks Section for One-Off Tasks (or any task technically) */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Checklist</Text>
 
-              {subtasks.map((sub) => (
-                <View key={sub.id} style={styles.subtaskRow}>
-                  <TouchableOpacity
-                    onPress={() => handleToggleSubtask(sub.id)}
-                    style={styles.checkboxTouch}
-                  >
-                    <View
-                      style={[
-                        styles.checkbox,
-                        sub.isCompleted && {
-                          backgroundColor: theme.primary,
-                          borderColor: theme.primary,
-                        },
-                      ]}
-                    >
-                      {sub.isCompleted && (
-                        <Check size={12} color={theme.onPrimary} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                  <Text
+            {subtasks.map((sub) => (
+              <View key={sub.id} style={styles.subtaskRow}>
+                <TouchableOpacity
+                  onPress={() => handleToggleSubtask(sub.id)}
+                  style={styles.checkboxTouch}
+                >
+                  <View
                     style={[
-                      styles.subtaskText,
-                      sub.isCompleted && styles.textStrikethrough,
+                      styles.checkbox,
+                      sub.isCompleted && {
+                        backgroundColor: theme.primary,
+                        borderColor: theme.primary,
+                      },
                     ]}
                   >
-                    {sub.title}
-                  </Text>
-                  <TouchableOpacity onPress={() => handleDeleteSubtask(sub.id)}>
-                    <Trash
-                      size={16}
-                      color={theme.error}
-                      style={{ opacity: 0.5 }}
-                    />
-                  </TouchableOpacity>
-                </View>
-              ))}
-
-              <View style={styles.addSubtaskRow}>
-                <TextInput
-                  style={styles.addSubtaskInput}
-                  placeholder="Add subtask..."
-                  placeholderTextColor={theme.onSurfaceVariant}
-                  value={newItemText}
-                  onChangeText={setNewItemText}
-                  onSubmitEditing={handleAddSubtask}
-                />
-                <TouchableOpacity
-                  onPress={handleAddSubtask}
-                  style={styles.addBtn}
+                    {sub.isCompleted && (
+                      <Check size={12} color={theme.onPrimary} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.subtaskText,
+                    sub.isCompleted && styles.textStrikethrough,
+                  ]}
                 >
-                  <Plus size={20} color={theme.primary} />
+                  {sub.title}
+                </Text>
+                <TouchableOpacity onPress={() => handleDeleteSubtask(sub.id)}>
+                  <Trash
+                    size={16}
+                    color={theme.error}
+                    style={{ opacity: 0.5 }}
+                  />
                 </TouchableOpacity>
               </View>
-            </View>
+            ))}
 
-            {/* Notes Section */}
-            <View style={styles.section}>
-              <View
+            <View style={styles.addSubtaskRow}>
+              <TextInput
+                style={styles.addSubtaskInput}
+                placeholder="Add subtask..."
+                placeholderTextColor={theme.onSurfaceVariant}
+                value={newItemText}
+                onChangeText={setNewItemText}
+                onSubmitEditing={handleAddSubtask}
+              />
+              <TouchableOpacity
+                onPress={handleAddSubtask}
+                style={styles.addBtn}
+              >
+                <Plus size={20} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Notes Section */}
+          <View style={styles.section}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                Notes
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsPreview(!isPreview)}
                 style={{
                   flexDirection: "row",
-                  justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: 12,
+                  gap: 6,
+                  padding: 4,
                 }}
               >
-                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
-                  Notes
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setIsPreview(!isPreview)}
+                {isPreview ? (
+                  <Edit3 size={14} color={theme.primary} />
+                ) : (
+                  <Eye size={14} color={theme.primary} />
+                )}
+                <Text
                   style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: 4,
+                    color: theme.primary,
+                    fontSize: 12,
+                    fontWeight: "500",
                   }}
                 >
-                  {isPreview ? (
-                    <Edit3 size={14} color={theme.primary} />
-                  ) : (
-                    <Eye size={14} color={theme.primary} />
-                  )}
-                  <Text
-                    style={{
-                      color: theme.primary,
-                      fontSize: 12,
-                      fontWeight: "500",
-                    }}
-                  >
-                    {isPreview ? "Edit" : "Preview"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {isPreview ? (
-                <View style={styles.markdownWrapper}>
-                  <Markdown style={getMarkdownStyles(theme)}>
-                    {note || "_No notes_"}
-                  </Markdown>
-                </View>
-              ) : (
-                <TextInput
-                  style={styles.noteInput}
-                  multiline
-                  textAlignVertical="top"
-                  placeholder="Add notes (supports Markdown)..."
-                  placeholderTextColor={theme.onSurfaceVariant}
-                  value={note}
-                  onChangeText={setNote}
-                />
-              )}
+                  {isPreview ? "Edit" : "Preview"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {isShortfall && val !== "" && (
-              <>
-                <View style={styles.divider} />
-                {renderFailureTags()}
-                {renderRecoveryOptions()}
-              </>
+            {isPreview ? (
+              <View style={styles.markdownWrapper}>
+                <Markdown style={getMarkdownStyles(theme)}>
+                  {note || "_No notes_"}
+                </Markdown>
+              </View>
+            ) : (
+              <TextInput
+                style={styles.noteInput}
+                multiline
+                textAlignVertical="top"
+                placeholder="Add notes (supports Markdown)..."
+                placeholderTextColor={theme.onSurfaceVariant}
+                value={note}
+                onChangeText={setNote}
+              />
             )}
-          </ScrollView>
-
-          {/* Action Buttons */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              onPress={handleSave}
-              style={styles.saveBtn}
-              accessibilityLabel="Save check-in"
-              accessibilityRole="button"
-            >
-              <Text style={styles.saveBtnText}>Save Check-in</Text>
-            </TouchableOpacity>
           </View>
+
+          {isShortfall && val !== "" && (
+            <>
+              <View style={styles.divider} />
+              {renderFailureTags()}
+              {renderRecoveryOptions()}
+            </>
+          )}
+        </ScrollView>
+
+        {/* Action Buttons */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            onPress={handleSave}
+            style={styles.saveBtn}
+            accessibilityLabel="Save check-in"
+            accessibilityRole="button"
+          >
+            <Text style={styles.saveBtnText}>Save Check-in</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </SafeModal>
@@ -523,12 +521,6 @@ const CheckInModal: React.FC<Props> = ({
 
 const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
-    centeredView: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: "rgba(0,0,0,0.5)",
-    },
     modalView: {
       backgroundColor: theme.surface,
       borderRadius: 28,

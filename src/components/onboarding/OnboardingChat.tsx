@@ -349,12 +349,21 @@ const OnboardingChat: React.FC<OnboardingChatProps> = ({
                 (!inputValue.trim() || isTyping) && styles.sendBtnDisabled,
               ]}
             >
-              <Send
-                size={20}
-                color={
-                  inputValue.trim() ? theme.onPrimary : theme.onSurfaceVariant
-                }
-              />
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Send
+                  size={20}
+                  color={
+                    inputValue.trim() ? theme.onPrimary : theme.onSurfaceVariant
+                  }
+                />
+              </View>
             </TouchableOpacity>
           </View>
         </View>

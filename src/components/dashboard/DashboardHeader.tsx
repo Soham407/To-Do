@@ -73,145 +73,166 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   setSelectedListId,
   goalCounts,
 }) => {
+  const HeaderContainer = Platform.OS === "ios" ? BlurView : View;
+
   return (
-    <BlurView
-      intensity={Platform.OS === "ios" ? 40 : 60}
-      tint={isDark ? "dark" : "light"}
-      style={styles.headerWrapper}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => setIsCalendarOpen(true)}
-          style={styles.dateSelector}
-        >
-          <Text style={styles.dateSubtext}>
-            {formattedDate}{" "}
-            <ChevronDown size={16} color={theme.onSurfaceVariant} />
-          </Text>
-          <Text style={styles.dateTitle}>
-            {selectedDate === getLocalDateString() ? "Today" : "Your Plan"}
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.headerRight}>
+    <View style={styles.headerOuterWrapper}>
+      <HeaderContainer
+        intensity={Platform.OS === "ios" ? 40 : 60}
+        tint={isDark ? "dark" : "light"}
+        style={[
+          styles.headerWrapper,
+          Platform.OS === "android" && {
+            backgroundColor: isDark ? theme.surface : theme.surface,
+            elevation: 4,
+          },
+        ]}
+      >
+        <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => setIsTemplatesOpen(true)}
-            style={[
-              styles.coachBtn,
-              {
-                backgroundColor: theme.secondaryContainer + "40",
-                borderColor: theme.secondary + "30",
-              },
-            ]}
-            accessibilityLabel="Quick start templates"
-            accessibilityRole="button"
+            onPress={() => setIsCalendarOpen(true)}
+            style={styles.dateSelector}
           >
-            <Zap size={20} color={theme.secondary} />
+            <Text style={styles.dateSubtext}>
+              {formattedDate}{" "}
+              <ChevronDown size={16} color={theme.onSurfaceVariant} />
+            </Text>
+            <Text style={styles.dateTitle}>
+              {selectedDate === getLocalDateString() ? "Today" : "Your Plan"}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setIsListsOpen(true)}
-            style={[
-              styles.coachBtn,
-              {
-                backgroundColor: theme.tertiaryContainer + "40",
-                borderColor: theme.tertiary + "30",
-              },
-            ]}
-            accessibilityLabel="Manage lists"
-            accessibilityRole="button"
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={() => setIsTemplatesOpen(true)}
+              style={[
+                styles.coachBtn,
+                {
+                  backgroundColor: theme.secondaryContainer + "40",
+                  borderColor: theme.secondary + "30",
+                },
+              ]}
+              accessibilityLabel="Quick start templates"
+              accessibilityRole="button"
+            >
+              <Zap size={20} color={theme.secondary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsListsOpen(true)}
+              style={[
+                styles.coachBtn,
+                {
+                  backgroundColor: theme.tertiaryContainer + "40",
+                  borderColor: theme.tertiary + "30",
+                },
+              ]}
+              accessibilityLabel="Manage lists"
+              accessibilityRole="button"
+            >
+              <FolderOpen size={20} color={theme.tertiary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsCoachChatOpen(true)}
+              style={styles.coachBtn}
+              accessibilityLabel="AI Coach"
+              accessibilityRole="button"
+            >
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Sparkles size={22} color={theme.primary} />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsProfileOpen(true)}
+              style={styles.profileBtn}
+              accessibilityLabel="Profile settings"
+              accessibilityRole="button"
+            >
+              <UserCircle size={32} color={theme.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search tasks..."
+            placeholderTextColor={theme.onSurfaceVariant}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+        </View>
+
+        <View style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterScrollContainer}
           >
-            <FolderOpen size={20} color={theme.tertiary} />
-          </TouchableOpacity>
+            {(
+              ["All", "Today", "Upcoming", "Overdue", "High Priority"] as const
+            ).map((f) => (
+              <TouchableOpacity
+                key={f}
+                style={[
+                  styles.filterChip,
+                  activeFilter === f && styles.filterChipActive,
+                  { marginRight: 8 },
+                ]}
+                onPress={() => {
+                  setActiveFilter(f);
+                  if (f === "Today") setSelectedDate(getLocalDateString());
+                }}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    activeFilter === f && styles.filterTextActive,
+                  ]}
+                >
+                  {f}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
           <TouchableOpacity
-            onPress={() => setIsCoachChatOpen(true)}
-            style={styles.coachBtn}
-            accessibilityLabel="AI Coach"
-            accessibilityRole="button"
+            style={styles.viewToggleBtn}
+            onPress={() => setViewMode(viewMode === "LIST" ? "BOARD" : "LIST")}
+            accessibilityLabel={
+              viewMode === "LIST"
+                ? "Switch to board view"
+                : "Switch to list view"
+            }
           >
-            <Sparkles size={22} color={theme.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setIsProfileOpen(true)}
-            style={styles.profileBtn}
-            accessibilityLabel="Profile settings"
-            accessibilityRole="button"
-          >
-            <UserCircle size={32} color={theme.onSurfaceVariant} />
+            {viewMode === "LIST" ? (
+              <KanbanSquare size={20} color={theme.onSurfaceVariant} />
+            ) : (
+              <ListIcon size={20} color={theme.onSurfaceVariant} />
+            )}
           </TouchableOpacity>
         </View>
-      </View>
 
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search tasks..."
-          placeholderTextColor={theme.onSurfaceVariant}
-          value={searchText}
-          onChangeText={setSearchText}
+        {/* Progress Overview - Only show on Today filter */}
+        {activeFilter === "Today" && (
+          <ProgressOverview tasks={tasks} agendas={agendas} theme={theme} />
+        )}
+
+        {/* Lists Filter Bar */}
+        <ListsFilterBar
+          lists={lists}
+          selectedListId={selectedListId}
+          onSelectList={setSelectedListId}
+          theme={theme}
+          goalCounts={goalCounts}
         />
-      </View>
-
-      <View style={styles.filterContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterScrollContainer}
-        >
-          {(
-            ["All", "Today", "Upcoming", "Overdue", "High Priority"] as const
-          ).map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[
-                styles.filterChip,
-                activeFilter === f && styles.filterChipActive,
-                { marginRight: 8 },
-              ]}
-              onPress={() => {
-                setActiveFilter(f);
-                if (f === "Today") setSelectedDate(getLocalDateString());
-              }}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  activeFilter === f && styles.filterTextActive,
-                ]}
-              >
-                {f}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <TouchableOpacity
-          style={styles.viewToggleBtn}
-          onPress={() => setViewMode(viewMode === "LIST" ? "BOARD" : "LIST")}
-          accessibilityLabel={
-            viewMode === "LIST" ? "Switch to board view" : "Switch to list view"
-          }
-        >
-          {viewMode === "LIST" ? (
-            <KanbanSquare size={20} color={theme.onSurfaceVariant} />
-          ) : (
-            <ListIcon size={20} color={theme.onSurfaceVariant} />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Progress Overview - Only show on Today filter */}
-      {activeFilter === "Today" && (
-        <ProgressOverview tasks={tasks} agendas={agendas} theme={theme} />
-      )}
-
-      {/* Lists Filter Bar */}
-      <ListsFilterBar
-        lists={lists}
-        selectedListId={selectedListId}
-        onSelectList={setSelectedListId}
-        theme={theme}
-        goalCounts={goalCounts}
-      />
-    </BlurView>
+      </HeaderContainer>
+    </View>
   );
 };
 

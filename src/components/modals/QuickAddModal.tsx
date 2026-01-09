@@ -158,17 +158,16 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
   }, [isOpen]);
 
   return (
-    <SafeModal visible={isOpen} animationType="fade" onClose={onClose}>
+    <SafeModal
+      visible={isOpen}
+      animationType="fade"
+      onClose={onClose}
+      bottomSheet
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.overlay}
+        style={styles.keyboardView}
       >
-        <Pressable
-          style={styles.backdrop}
-          onPress={onClose}
-          pointerEvents="auto"
-        />
-
         <Animated.View
           style={[styles.container, { transform: [{ scale: scaleAnim }] }]}
         >
@@ -439,13 +438,13 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
 const getStyles = (theme: MD3Theme, bottomInset: number) =>
   StyleSheet.create({
-    overlay: {
+    keyboardView: {
       flex: 1,
-      justifyContent: "flex-end", // Bottom sheet effect
+      justifyContent: "flex-end", // Keep content at bottom within bottomSheet
     },
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(0,0,0,0.4)",
+      // Backdrop is now transparent since SafeModal provides the semi-transparent background
       zIndex: Z_INDEX.MODAL_BACKDROP,
     },
     container: {

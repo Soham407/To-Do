@@ -9,6 +9,11 @@ export const getDashboardStyles = (theme: MD3Theme, isDark: boolean) =>
       padding: 16,
       backgroundColor: theme.background,
     },
+    headerOuterWrapper: {
+      marginHorizontal: -16,
+      backgroundColor: "transparent",
+      zIndex: Z_INDEX.HEADER,
+    },
     headerWrapper: {
       paddingHorizontal: 16,
       paddingTop: 8,

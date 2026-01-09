@@ -157,198 +157,192 @@ const GoalSettingsModal: React.FC<Props> = ({
 
   return (
     <SafeModal visible={isOpen} onClose={onClose} animationType="fade">
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
-          <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>{itemLabel} Settings</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={24} color={theme.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
+      <View style={styles.modalView}>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>{itemLabel} Settings</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <X size={24} color={theme.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>{itemLabel} Name</Text>
-            <TextInput
-              style={styles.input}
-              value={title}
-              placeholder={title ? "" : placeholders[placeholderIndex]}
-              placeholderTextColor={theme.onSurfaceVariant + "80"}
-              onChangeText={setTitle}
-            />
-          </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>{itemLabel} Name</Text>
+          <TextInput
+            style={styles.input}
+            value={title}
+            placeholder={title ? "" : placeholders[placeholderIndex]}
+            placeholderTextColor={theme.onSurfaceVariant + "80"}
+            onChangeText={setTitle}
+          />
+        </View>
 
-          {/* Recurrence Settings (Hidden for One-Off if desired, but let's allow editing for flexibility if user wants to convert) */}
-          {!isOneOff && (
-            <View style={styles.section}>
-              <Text style={styles.label}>Frequency</Text>
-              <View style={styles.chipsContainer}>
-                {(["DAILY", "WEEKDAYS", "WEEKLY", "CUSTOM"] as const).map(
-                  (p) => (
+        {/* Recurrence Settings (Hidden for One-Off if desired, but let's allow editing for flexibility if user wants to convert) */}
+        {!isOneOff && (
+          <View style={styles.section}>
+            <Text style={styles.label}>Frequency</Text>
+            <View style={styles.chipsContainer}>
+              {(["DAILY", "WEEKDAYS", "WEEKLY", "CUSTOM"] as const).map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  style={[
+                    styles.chip,
+                    recurrencePattern === p && styles.chipSelected,
+                  ]}
+                  onPress={() => setRecurrencePattern(p)}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      recurrencePattern === p && styles.chipTextSelected,
+                    ]}
+                  >
+                    {p === "WEEKDAYS"
+                      ? "Mon-Fri"
+                      : p.charAt(0) + p.slice(1).toLowerCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {recurrencePattern === "CUSTOM" && (
+              <View style={styles.daysContainer}>
+                {["S", "M", "T", "W", "T", "F", "S"].map((day, idx) => {
+                  const isSelected = recurrenceDays.includes(idx);
+                  return (
                     <TouchableOpacity
-                      key={p}
+                      key={idx}
                       style={[
-                        styles.chip,
-                        recurrencePattern === p && styles.chipSelected,
+                        styles.dayCircle,
+                        isSelected && styles.dayCircleSelected,
                       ]}
-                      onPress={() => setRecurrencePattern(p)}
+                      onPress={() => {
+                        if (isSelected) {
+                          setRecurrenceDays((prev) =>
+                            prev.filter((d) => d !== idx)
+                          );
+                        } else {
+                          setRecurrenceDays((prev) => [...prev, idx]);
+                        }
+                      }}
                     >
                       <Text
                         style={[
-                          styles.chipText,
-                          recurrencePattern === p && styles.chipTextSelected,
+                          styles.dayText,
+                          isSelected && styles.dayTextSelected,
                         ]}
                       >
-                        {p === "WEEKDAYS"
-                          ? "Mon-Fri"
-                          : p.charAt(0) + p.slice(1).toLowerCase()}
+                        {day}
                       </Text>
                     </TouchableOpacity>
-                  )
-                )}
+                  );
+                })}
               </View>
+            )}
+          </View>
+        )}
 
-              {recurrencePattern === "CUSTOM" && (
-                <View style={styles.daysContainer}>
-                  {["S", "M", "T", "W", "T", "F", "S"].map((day, idx) => {
-                    const isSelected = recurrenceDays.includes(idx);
-                    return (
-                      <TouchableOpacity
-                        key={idx}
-                        style={[
-                          styles.dayCircle,
-                          isSelected && styles.dayCircleSelected,
-                        ]}
-                        onPress={() => {
-                          if (isSelected) {
-                            setRecurrenceDays((prev) =>
-                              prev.filter((d) => d !== idx)
-                            );
-                          } else {
-                            setRecurrenceDays((prev) => [...prev, idx]);
-                          }
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.dayText,
-                            isSelected && styles.dayTextSelected,
-                          ]}
-                        >
-                          {day}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* List Selector (New) */}
-          <View style={styles.section}>
-            <Text style={styles.label}>List</Text>
-            <View style={styles.chipsContainer}>
-              {DEFAULT_LISTS.map((list) => {
-                const isSelected = selectedListId === list.id;
-                return (
-                  <TouchableOpacity
-                    key={list.id}
+        {/* List Selector (New) */}
+        <View style={styles.section}>
+          <Text style={styles.label}>List</Text>
+          <View style={styles.chipsContainer}>
+            {DEFAULT_LISTS.map((list) => {
+              const isSelected = selectedListId === list.id;
+              return (
+                <TouchableOpacity
+                  key={list.id}
+                  style={[
+                    styles.chip,
+                    isSelected && {
+                      backgroundColor: list.color + "20",
+                      borderColor: list.color,
+                    },
+                  ]}
+                  onPress={() => setSelectedListId(list.id)}
+                >
+                  <Text style={{ marginRight: 4 }}>{list.icon}</Text>
+                  <Text
                     style={[
-                      styles.chip,
+                      styles.chipText,
                       isSelected && {
-                        backgroundColor: list.color + "20",
-                        borderColor: list.color,
+                        color: list.color,
+                        fontFamily: Fonts.bold,
                       },
                     ]}
-                    onPress={() => setSelectedListId(list.id)}
                   >
-                    <Text style={{ marginRight: 4 }}>{list.icon}</Text>
-                    <Text
-                      style={[
-                        styles.chipText,
-                        isSelected && {
-                          color: list.color,
-                          fontFamily: Fonts.bold,
-                        },
-                      ]}
-                    >
-                      {list.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Reminder Section (Time Picker) */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Reminder</Text>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
-            >
-              <TouchableOpacity
-                onPress={() => setShowPicker(true)}
-                style={styles.timePickerBtn}
-              >
-                <Text style={styles.timePickerText}>
-                  {reminderTime
-                    ? reminderTime.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Add Reminder"}
-                </Text>
-              </TouchableOpacity>
-
-              {reminderTime && (
-                <TouchableOpacity onPress={() => setReminderTime(null)}>
-                  <X size={24} color={theme.error} />
+                    {list.name}
+                  </Text>
                 </TouchableOpacity>
-              )}
-            </View>
+              );
+            })}
+          </View>
+        </View>
 
-            {showPicker && (
-              <DateTimePicker
-                value={reminderTime || new Date()}
-                mode="time"
-                display="default"
-                onChange={(event, date) => {
-                  if (Platform.OS === "android") setShowPicker(false);
-                  if (event.type === "set" && date) setReminderTime(date);
-                }}
-              />
+        {/* Reminder Section (Time Picker) */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Reminder</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => setShowPicker(true)}
+              style={styles.timePickerBtn}
+            >
+              <Text style={styles.timePickerText}>
+                {reminderTime
+                  ? reminderTime.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Add Reminder"}
+              </Text>
+            </TouchableOpacity>
+
+            {reminderTime && (
+              <TouchableOpacity onPress={() => setReminderTime(null)}>
+                <X size={24} color={theme.error} />
+              </TouchableOpacity>
             )}
           </View>
 
-          {isNumeric && (
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>
-                Daily Target ({agenda.unit || "units"})
-              </Text>
-              <TextInput
-                style={styles.input}
-                value={target}
-                onChangeText={setTarget}
-                keyboardType="numeric"
-              />
-            </View>
+          {showPicker && (
+            <DateTimePicker
+              value={reminderTime || new Date()}
+              mode="time"
+              display="default"
+              onChange={(event, date) => {
+                if (Platform.OS === "android") setShowPicker(false);
+                if (event.type === "set" && date) setReminderTime(date);
+              }}
+            />
           )}
-
-          <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
-            <Save size={18} color={theme.onPrimary} />
-            <Text style={styles.saveBtnText}>Save Changes</Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            onPress={handleDelete}
-            style={styles.deleteBtnInitial}
-          >
-            <Trash2 size={18} color={theme.error} />
-            <Text style={styles.deleteBtnText}>Delete {itemLabel}</Text>
-          </TouchableOpacity>
         </View>
+
+        {isNumeric && (
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>
+              Daily Target ({agenda.unit || "units"})
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={target}
+              onChangeText={setTarget}
+              keyboardType="numeric"
+            />
+          </View>
+        )}
+
+        <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
+          <Save size={18} color={theme.onPrimary} />
+          <Text style={styles.saveBtnText}>Save Changes</Text>
+        </TouchableOpacity>
+
+        <View style={styles.divider} />
+
+        <TouchableOpacity
+          onPress={handleDelete}
+          style={styles.deleteBtnInitial}
+        >
+          <Trash2 size={18} color={theme.error} />
+          <Text style={styles.deleteBtnText}>Delete {itemLabel}</Text>
+        </TouchableOpacity>
       </View>
     </SafeModal>
   );
@@ -356,12 +350,6 @@ const GoalSettingsModal: React.FC<Props> = ({
 
 const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
-    centeredView: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: "rgba(0,0,0,0.5)",
-    },
     modalView: {
       width: "85%",
       backgroundColor: theme.surface,
