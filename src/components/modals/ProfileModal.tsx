@@ -7,8 +7,9 @@ import {
   Switch,
   ScrollView,
   Alert,
+  Modal,
+  Dimensions,
 } from "react-native";
-import SafeModal from "../common/SafeModal";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../api/supabase";
@@ -70,102 +71,122 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <SafeModal visible={isOpen} animationType="fade" onClose={onClose}>
-      <View style={styles.modalView}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Profile</Text>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeBtn}
-              accessibilityLabel="Close profile modal"
-              accessibilityRole="button"
-            >
-              <X size={24} color={theme.onSurfaceVariant} />
+    <Modal
+      visible={isOpen}
+      animationType="fade"
+      onRequestClose={onClose}
+      transparent={true}
+      statusBarTranslucent={true}
+    >
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: Dimensions.get("window").width,
+          height: Dimensions.get("window").height,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          zIndex: 9999,
+        }}
+      >
+        <View style={styles.modalView}>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>Profile</Text>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                accessibilityLabel="Close profile modal"
+                accessibilityRole="button"
+              >
+                <X size={24} color={theme.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Profile Header */}
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarContainer}>
+                <User size={32} color={theme.onPrimaryContainer} />
+              </View>
+              <View>
+                <Text style={styles.profileName}>
+                  {user?.email ? user.email.split("@")[0] : "Guest User"}
+                </Text>
+                <Text style={styles.profileEmail}>
+                  {user?.email || "Goal Coach Trial"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Settings Section */}
+            <Text style={styles.sectionTitle}>Settings</Text>
+
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <Bell size={20} color={theme.onSurfaceVariant} />
+                <Text style={styles.settingText}>Notifications</Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={handleNotificationToggle}
+                trackColor={{
+                  false: theme.surfaceVariant,
+                  true: theme.primary,
+                }}
+                thumbColor={theme.surface}
+                accessibilityLabel="Toggle notifications"
+                accessibilityRole="switch"
+                accessibilityState={{ checked: notificationsEnabled }}
+              />
+            </View>
+
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <Palette size={20} color={theme.onSurfaceVariant} />
+                <Text style={styles.settingText}>Dark Mode</Text>
+              </View>
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{
+                  false: theme.surfaceVariant,
+                  true: theme.primary,
+                }}
+                thumbColor={theme.surface}
+                accessibilityLabel="Toggle dark mode"
+                accessibilityRole="switch"
+                accessibilityState={{ checked: isDark }}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <View style={styles.settingLeft}>
+                <LogOut size={20} color={theme.error} />
+                <Text style={[styles.settingText, { color: theme.error }]}>
+                  Log Out
+                </Text>
+              </View>
+              <ChevronRight size={20} color={theme.error} />
             </TouchableOpacity>
-          </View>
-
-          {/* Profile Header */}
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <User size={32} color={theme.onPrimaryContainer} />
-            </View>
-            <View>
-              <Text style={styles.profileName}>
-                {user?.email ? user.email.split("@")[0] : "Guest User"}
-              </Text>
-              <Text style={styles.profileEmail}>
-                {user?.email || "Goal Coach Trial"}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* Settings Section */}
-          <Text style={styles.sectionTitle}>Settings</Text>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Bell size={20} color={theme.onSurfaceVariant} />
-              <Text style={styles.settingText}>Notifications</Text>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={handleNotificationToggle}
-              trackColor={{
-                false: theme.surfaceVariant,
-                true: theme.primary,
-              }}
-              thumbColor={theme.surface}
-              accessibilityLabel="Toggle notifications"
-              accessibilityRole="switch"
-              accessibilityState={{ checked: notificationsEnabled }}
-            />
-          </View>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Palette size={20} color={theme.onSurfaceVariant} />
-              <Text style={styles.settingText}>Dark Mode</Text>
-            </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{
-                false: theme.surfaceVariant,
-                true: theme.primary,
-              }}
-              thumbColor={theme.surface}
-              accessibilityLabel="Toggle dark mode"
-              accessibilityRole="switch"
-              accessibilityState={{ checked: isDark }}
-            />
-          </View>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-            <View style={styles.settingLeft}>
-              <LogOut size={20} color={theme.error} />
-              <Text style={[styles.settingText, { color: theme.error }]}>
-                Log Out
-              </Text>
-            </View>
-            <ChevronRight size={20} color={theme.error} />
-          </TouchableOpacity>
-        </ScrollView>
+          </ScrollView>
+        </View>
       </View>
-    </SafeModal>
+    </Modal>
   );
 };
 
 const getStyles = (theme: any) =>
   StyleSheet.create({
     modalView: {
-      width: "90%",
-      maxWidth: 400,
+      width: 350,
+      maxWidth: 500,
       backgroundColor: theme.surface,
       borderRadius: 28,
       padding: 20,

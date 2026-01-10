@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  Modal,
 } from "react-native";
-import SafeModal from "../common/SafeModal";
 import {
   X,
   Trophy,
@@ -230,137 +230,147 @@ const AchievementsModal: React.FC<Props> = ({
   }, [isOpen, unlockedAchievements]);
 
   return (
-    <SafeModal
+    <Modal
       visible={isOpen}
       animationType="slide"
-      fullScreen={true}
-      onClose={onClose}
+      transparent={false}
+      statusBarTranslucent={true}
+      onRequestClose={onClose}
     >
-      <View style={s.container}>
-        {/* Header */}
-        <View style={s.header}>
-          <View style={s.headerLeft}>
-            <Trophy size={24} color={theme.primary} />
-            <Text style={s.headerTitle}>Achievements</Text>
+      <View style={styles.modalWrapper}>
+        <View style={s.container}>
+          {/* Header */}
+          <View style={s.header}>
+            <View style={s.headerLeft}>
+              <Trophy size={24} color={theme.primary} />
+              <Text style={s.headerTitle}>Achievements</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={s.closeBtn}>
+              <X size={24} color={theme.onSurfaceVariant} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={onClose} style={s.closeBtn}>
-            <X size={24} color={theme.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={s.scrollContent}
-        >
-          {/* Level Card */}
-          <View style={s.levelCard}>
-            <View style={s.levelHeader}>
-              <View style={s.levelBadge}>
-                <Text style={s.levelNumber}>{stats.level}</Text>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={s.scrollContent}
+          >
+            {/* Level Card */}
+            <View style={s.levelCard}>
+              <View style={s.levelHeader}>
+                <View style={s.levelBadge}>
+                  <Text style={s.levelNumber}>{stats.level}</Text>
+                </View>
+                <View style={s.levelInfo}>
+                  <Text style={s.levelTitle}>{levelTitle}</Text>
+                  <Text style={s.xpText}>
+                    {formatXP(stats.totalXP)} XP Total
+                  </Text>
+                </View>
+                <View style={s.xpBadge}>
+                  <Zap size={14} color={theme.primary} />
+                  <Text style={s.xpBadgeText}>{levelProgress.percentage}%</Text>
+                </View>
               </View>
-              <View style={s.levelInfo}>
-                <Text style={s.levelTitle}>{levelTitle}</Text>
-                <Text style={s.xpText}>{formatXP(stats.totalXP)} XP Total</Text>
-              </View>
-              <View style={s.xpBadge}>
-                <Zap size={14} color={theme.primary} />
-                <Text style={s.xpBadgeText}>{levelProgress.percentage}%</Text>
+              <View style={s.levelProgressSection}>
+                <XPProgressBar
+                  progress={levelProgress.percentage}
+                  theme={theme}
+                />
+                <Text style={s.levelProgressText}>
+                  {levelProgress.current} / {levelProgress.required} XP to Level{" "}
+                  {stats.level + 1}
+                </Text>
               </View>
             </View>
-            <View style={s.levelProgressSection}>
-              <XPProgressBar
-                progress={levelProgress.percentage}
+
+            {/* Stats Grid */}
+            <View style={s.statsGrid}>
+              <StatBox
+                icon={<Flame size={20} color={theme.error} />}
+                value={stats.currentStreak}
+                label="Current Streak"
+                color={theme.error}
                 theme={theme}
               />
-              <Text style={s.levelProgressText}>
-                {levelProgress.current} / {levelProgress.required} XP to Level{" "}
-                {stats.level + 1}
+              <StatBox
+                icon={<Star size={20} color={theme.tertiary} />}
+                value={stats.longestStreak}
+                label="Best Streak"
+                color={theme.tertiary}
+                theme={theme}
+              />
+              <StatBox
+                icon={<Target size={20} color={theme.primary} />}
+                value={stats.tasksCompleted}
+                label="Tasks Done"
+                color={theme.primary}
+                theme={theme}
+              />
+              <StatBox
+                icon={<Trophy size={20} color={theme.secondary} />}
+                value={unlockedAchievements.size}
+                label="Achievements"
+                color={theme.secondary}
+                theme={theme}
+              />
+            </View>
+
+            {/* Achievement Sections */}
+            {Object.entries(groupedAchievements).map(
+              ([category, achievements]) => (
+                <View key={category} style={s.achievementSection}>
+                  <View style={s.sectionHeader}>
+                    <Text style={s.sectionTitle}>
+                      {category === "streak"
+                        ? "🔥 Streak Masters"
+                        : category === "completion"
+                        ? "✅ Task Champions"
+                        : category === "consistency"
+                        ? "💎 Consistency Kings"
+                        : "⭐ Special Badges"}
+                    </Text>
+                    <Text style={s.sectionCount}>
+                      {
+                        achievements.filter((a) =>
+                          unlockedAchievements.has(a.id)
+                        ).length
+                      }
+                      /{achievements.length}
+                    </Text>
+                  </View>
+                  <View style={s.achievementGrid}>
+                    {achievements.map((achievement) => (
+                      <AchievementCard
+                        key={achievement.id}
+                        achievement={achievement}
+                        isUnlocked={unlockedAchievements.has(achievement.id)}
+                        theme={theme}
+                      />
+                    ))}
+                  </View>
+                </View>
+              )
+            )}
+
+            {/* Motivational Footer */}
+            <View style={s.footer}>
+              <Text style={s.footerText}>
+                🎯 Keep completing tasks to unlock more achievements and level
+                up!
               </Text>
             </View>
-          </View>
-
-          {/* Stats Grid */}
-          <View style={s.statsGrid}>
-            <StatBox
-              icon={<Flame size={20} color={theme.error} />}
-              value={stats.currentStreak}
-              label="Current Streak"
-              color={theme.error}
-              theme={theme}
-            />
-            <StatBox
-              icon={<Star size={20} color={theme.tertiary} />}
-              value={stats.longestStreak}
-              label="Best Streak"
-              color={theme.tertiary}
-              theme={theme}
-            />
-            <StatBox
-              icon={<Target size={20} color={theme.primary} />}
-              value={stats.tasksCompleted}
-              label="Tasks Done"
-              color={theme.primary}
-              theme={theme}
-            />
-            <StatBox
-              icon={<Trophy size={20} color={theme.secondary} />}
-              value={unlockedAchievements.size}
-              label="Achievements"
-              color={theme.secondary}
-              theme={theme}
-            />
-          </View>
-
-          {/* Achievement Sections */}
-          {Object.entries(groupedAchievements).map(
-            ([category, achievements]) => (
-              <View key={category} style={s.achievementSection}>
-                <View style={s.sectionHeader}>
-                  <Text style={s.sectionTitle}>
-                    {category === "streak"
-                      ? "🔥 Streak Masters"
-                      : category === "completion"
-                      ? "✅ Task Champions"
-                      : category === "consistency"
-                      ? "💎 Consistency Kings"
-                      : "⭐ Special Badges"}
-                  </Text>
-                  <Text style={s.sectionCount}>
-                    {
-                      achievements.filter((a) => unlockedAchievements.has(a.id))
-                        .length
-                    }
-                    /{achievements.length}
-                  </Text>
-                </View>
-                <View style={s.achievementGrid}>
-                  {achievements.map((achievement) => (
-                    <AchievementCard
-                      key={achievement.id}
-                      achievement={achievement}
-                      isUnlocked={unlockedAchievements.has(achievement.id)}
-                      theme={theme}
-                    />
-                  ))}
-                </View>
-              </View>
-            )
-          )}
-
-          {/* Motivational Footer */}
-          <View style={s.footer}>
-            <Text style={s.footerText}>
-              🎯 Keep completing tasks to unlock more achievements and level up!
-            </Text>
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </View>
       </View>
-    </SafeModal>
+    </Modal>
   );
 };
 
 const styles = (theme: MD3Theme) =>
   StyleSheet.create({
+    modalWrapper: {
+      flex: 1,
+    },
     container: {
       flex: 1,
       backgroundColor: theme.background,

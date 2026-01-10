@@ -8,8 +8,9 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Dimensions,
 } from "react-native";
-import SafeModal from "../common/SafeModal";
 import { useTheme } from "../../context/ThemeContext";
 import { Fonts, MD3Theme } from "../../config/theme";
 import {
@@ -116,224 +117,242 @@ const GoalTemplatesModal: React.FC<GoalTemplatesModalProps> = ({
   };
 
   return (
-    <SafeModal
+    <Modal
       visible={isOpen}
       animationType="slide"
-      onClose={resetAndClose}
-      bottomSheet
+      onRequestClose={resetAndClose}
+      transparent={true}
+      statusBarTranslucent={true}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardView}
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: Dimensions.get("window").width,
+          height: Dimensions.get("window").height,
+          justifyContent: "flex-end",
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          zIndex: 9999,
+        }}
       >
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Sparkles size={24} color={theme.primary} />
-              <Text style={styles.headerTitle}>
-                {selectedTemplate ? "Customize Goal" : "Quick Start Templates"}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={resetAndClose}
-              style={styles.closeBtn}
-              accessibilityLabel="Close templates"
-              accessibilityRole="button"
-            >
-              <X size={24} color={theme.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-
-          {!selectedTemplate ? (
-            <>
-              {/* Category Filter */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.categoryScroll}
-                contentContainerStyle={styles.categoryContainer}
-                keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardView}
+        >
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.headerLeft}>
+                <Sparkles size={24} color={theme.primary} />
+                <Text style={styles.headerTitle}>
+                  {selectedTemplate
+                    ? "Customize Goal"
+                    : "Quick Start Templates"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={resetAndClose}
+                style={styles.closeBtn}
+                accessibilityLabel="Close templates"
+                accessibilityRole="button"
               >
-                <TouchableOpacity
-                  style={[
-                    styles.categoryChip,
-                    !selectedCategory && styles.categoryChipActive,
-                  ]}
-                  onPress={() => setSelectedCategory(null)}
+                <X size={24} color={theme.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            {!selectedTemplate ? (
+              <>
+                {/* Category Filter */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.categoryScroll}
+                  contentContainerStyle={styles.categoryContainer}
+                  keyboardShouldPersistTaps="handled"
                 >
-                  <Text
-                    style={[
-                      styles.categoryText,
-                      !selectedCategory && styles.categoryTextActive,
-                    ]}
-                  >
-                    All
-                  </Text>
-                </TouchableOpacity>
-                {categories.map((cat) => (
                   <TouchableOpacity
-                    key={cat}
                     style={[
                       styles.categoryChip,
-                      selectedCategory === cat && styles.categoryChipActive,
+                      !selectedCategory && styles.categoryChipActive,
                     ]}
-                    onPress={() => setSelectedCategory(cat)}
+                    onPress={() => setSelectedCategory(null)}
                   >
                     <Text
                       style={[
                         styles.categoryText,
-                        selectedCategory === cat && styles.categoryTextActive,
+                        !selectedCategory && styles.categoryTextActive,
                       ]}
                     >
-                      {cat}
+                      All
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
+                  {categories.map((cat) => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.categoryChip,
+                        selectedCategory === cat && styles.categoryChipActive,
+                      ]}
+                      onPress={() => setSelectedCategory(cat)}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          selectedCategory === cat && styles.categoryTextActive,
+                        ]}
+                      >
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
 
-              {/* Templates Grid */}
-              <ScrollView
-                style={styles.templatesScroll}
-                contentContainerStyle={styles.templatesGrid}
-                keyboardShouldPersistTaps="handled"
-              >
-                {filteredTemplates.map((template) => (
-                  <TouchableOpacity
-                    key={template.id}
-                    style={styles.templateCard}
-                    onPress={() => handleSelectTemplate(template)}
-                    accessibilityLabel={`Select ${template.title} template`}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.templateIcon}>{template.icon}</Text>
-                    <Text style={styles.templateTitle}>{template.title}</Text>
-                    <Text style={styles.templateDesc} numberOfLines={2}>
-                      {template.description}
-                    </Text>
-                    <View style={styles.templateMeta}>
-                      <View style={styles.metaBadge}>
-                        <Target size={10} color={theme.primary} />
-                        <Text style={styles.metaText}>
-                          {template.type === AgendaType.NUMERIC
-                            ? "Numeric"
-                            : "Habit"}
-                        </Text>
-                      </View>
-                      {template.suggestedDuration && (
+                {/* Templates Grid */}
+                <ScrollView
+                  style={styles.templatesScroll}
+                  contentContainerStyle={styles.templatesGrid}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {filteredTemplates.map((template) => (
+                    <TouchableOpacity
+                      key={template.id}
+                      style={styles.templateCard}
+                      onPress={() => handleSelectTemplate(template)}
+                      accessibilityLabel={`Select ${template.title} template`}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.templateIcon}>{template.icon}</Text>
+                      <Text style={styles.templateTitle}>{template.title}</Text>
+                      <Text style={styles.templateDesc} numberOfLines={2}>
+                        {template.description}
+                      </Text>
+                      <View style={styles.templateMeta}>
                         <View style={styles.metaBadge}>
-                          <Clock size={10} color={theme.secondary} />
+                          <Target size={10} color={theme.primary} />
                           <Text style={styles.metaText}>
-                            {template.suggestedDuration}d
+                            {template.type === AgendaType.NUMERIC
+                              ? "Numeric"
+                              : "Habit"}
                           </Text>
                         </View>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </>
-          ) : (
-            /* Customization View */
-            <ScrollView
-              style={styles.customizeScroll}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.previewCard}>
-                <Text style={styles.previewIcon}>{selectedTemplate.icon}</Text>
-                <View>
-                  <Text style={styles.previewTitle}>
-                    {selectedTemplate.title}
+                        {template.suggestedDuration && (
+                          <View style={styles.metaBadge}>
+                            <Clock size={10} color={theme.secondary} />
+                            <Text style={styles.metaText}>
+                              {template.suggestedDuration}d
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            ) : (
+              /* Customization View */
+              <ScrollView
+                style={styles.customizeScroll}
+                keyboardShouldPersistTaps="handled"
+              >
+                <View style={styles.previewCard}>
+                  <Text style={styles.previewIcon}>
+                    {selectedTemplate.icon}
                   </Text>
-                  <Text style={styles.previewType}>
-                    {selectedTemplate.type === AgendaType.NUMERIC
-                      ? `${selectedTemplate.suggestedTarget} ${selectedTemplate.suggestedUnit}`
-                      : "Daily Habit"}
-                  </Text>
+                  <View>
+                    <Text style={styles.previewTitle}>
+                      {selectedTemplate.title}
+                    </Text>
+                    <Text style={styles.previewType}>
+                      {selectedTemplate.type === AgendaType.NUMERIC
+                        ? `${selectedTemplate.suggestedTarget} ${selectedTemplate.suggestedUnit}`
+                        : "Daily Habit"}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Goal Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={customTitle}
-                  onChangeText={setCustomTitle}
-                  placeholder="Give your goal a name"
-                  placeholderTextColor={theme.onSurfaceVariant}
-                />
-              </View>
-
-              {selectedTemplate.type === AgendaType.NUMERIC && (
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>
-                    Total Target ({selectedTemplate.suggestedUnit})
-                  </Text>
+                  <Text style={styles.inputLabel}>Goal Name</Text>
                   <TextInput
                     style={styles.input}
-                    value={customTarget}
-                    onChangeText={setCustomTarget}
-                    keyboardType="numeric"
-                    placeholder={`e.g., ${selectedTemplate.suggestedTarget}`}
+                    value={customTitle}
+                    onChangeText={setCustomTitle}
+                    placeholder="Give your goal a name"
                     placeholderTextColor={theme.onSurfaceVariant}
                   />
                 </View>
-              )}
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Duration (days)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={customDuration}
-                  onChangeText={setCustomDuration}
-                  keyboardType="numeric"
-                  placeholder={`e.g., ${selectedTemplate.suggestedDuration}`}
-                  placeholderTextColor={theme.onSurfaceVariant}
-                />
-              </View>
-
-              {/* Daily breakdown preview */}
-              {selectedTemplate.type === AgendaType.NUMERIC &&
-                customTarget &&
-                customDuration &&
-                !isNaN(parseInt(customTarget)) &&
-                !isNaN(parseInt(customDuration)) &&
-                parseInt(customDuration) > 0 && (
-                  <View style={styles.breakdownCard}>
-                    <Zap size={16} color={theme.primary} />
-                    <Text style={styles.breakdownText}>
-                      That's{" "}
-                      <Text style={styles.breakdownHighlight}>
-                        {Math.ceil(
-                          parseInt(customTarget) / parseInt(customDuration)
-                        )}{" "}
-                        {selectedTemplate.suggestedUnit}
-                      </Text>{" "}
-                      per day
+                {selectedTemplate.type === AgendaType.NUMERIC && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>
+                      Total Target ({selectedTemplate.suggestedUnit})
                     </Text>
+                    <TextInput
+                      style={styles.input}
+                      value={customTarget}
+                      onChangeText={setCustomTarget}
+                      keyboardType="numeric"
+                      placeholder={`e.g., ${selectedTemplate.suggestedTarget}`}
+                      placeholderTextColor={theme.onSurfaceVariant}
+                    />
                   </View>
                 )}
 
-              <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={styles.backButton}
-                  onPress={() => setSelectedTemplate(null)}
-                >
-                  <Text style={styles.backButtonText}>Back</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.createButton}
-                  onPress={handleCreateGoal}
-                >
-                  <Text style={styles.createButtonText}>Create Goal</Text>
-                  <ChevronRight size={20} color={theme.onPrimary} />
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </SafeModal>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Duration (days)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={customDuration}
+                    onChangeText={setCustomDuration}
+                    keyboardType="numeric"
+                    placeholder={`e.g., ${selectedTemplate.suggestedDuration}`}
+                    placeholderTextColor={theme.onSurfaceVariant}
+                  />
+                </View>
+
+                {/* Daily breakdown preview */}
+                {selectedTemplate.type === AgendaType.NUMERIC &&
+                  customTarget &&
+                  customDuration &&
+                  !isNaN(parseInt(customTarget)) &&
+                  !isNaN(parseInt(customDuration)) &&
+                  parseInt(customDuration) > 0 && (
+                    <View style={styles.breakdownCard}>
+                      <Zap size={16} color={theme.primary} />
+                      <Text style={styles.breakdownText}>
+                        That's{" "}
+                        <Text style={styles.breakdownHighlight}>
+                          {Math.ceil(
+                            parseInt(customTarget) / parseInt(customDuration)
+                          )}{" "}
+                          {selectedTemplate.suggestedUnit}
+                        </Text>{" "}
+                        per day
+                      </Text>
+                    </View>
+                  )}
+
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => setSelectedTemplate(null)}
+                  >
+                    <Text style={styles.backButtonText}>Back</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.createButton}
+                    onPress={handleCreateGoal}
+                  >
+                    <Text style={styles.createButtonText}>Create Goal</Text>
+                    <ChevronRight size={20} color={theme.onPrimary} />
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
   );
 };
 

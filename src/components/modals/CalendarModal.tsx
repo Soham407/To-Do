@@ -1,6 +1,13 @@
 import React from "react";
-import { View, Text, Button, StyleSheet, TouchableOpacity } from "react-native";
-import SafeModal from "../common/SafeModal";
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  Dimensions,
+} from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useTheme } from "../../context/ThemeContext";
 import { MD3Theme } from "../../config/theme";
@@ -46,33 +53,52 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
   };
 
   return (
-    <SafeModal visible={isOpen} onClose={onClose} animationType="fade">
-      <View style={styles.modalView}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Select Date</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <X size={24} color={theme.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
+    <Modal
+      visible={isOpen}
+      onRequestClose={onClose}
+      animationType="fade"
+      transparent={true}
+      statusBarTranslucent={true}
+    >
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: Dimensions.get("window").width,
+          height: Dimensions.get("window").height,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+        }}
+      >
+        <View style={styles.modalView}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Select Date</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <X size={24} color={theme.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
 
-        <Calendar
-          current={selectedDate}
-          onDayPress={(day: DateData) => {
-            onSelectDate(day.dateString);
-            onClose();
-          }}
-          markedDates={{
-            [selectedDate]: {
-              selected: true,
-              disableTouchEvent: true,
-              selectedColor: theme.primary,
-            },
-          }}
-          theme={calendarTheme}
-          key={isDark ? "dark" : "light"}
-        />
+          <Calendar
+            current={selectedDate}
+            onDayPress={(day: DateData) => {
+              onSelectDate(day.dateString);
+              onClose();
+            }}
+            markedDates={{
+              [selectedDate]: {
+                selected: true,
+                disableTouchEvent: true,
+                selectedColor: theme.primary,
+              },
+            }}
+            theme={calendarTheme}
+            key={isDark ? "dark" : "light"}
+          />
+        </View>
       </View>
-    </SafeModal>
+    </Modal>
   );
 };
 
@@ -82,7 +108,8 @@ const getStyles = (theme: MD3Theme) =>
       backgroundColor: theme.surface,
       borderRadius: 28,
       padding: 24,
-      width: "85%",
+      width: 350,
+      maxWidth: 500,
       shadowColor: "#000",
       shadowOffset: {
         width: 0,

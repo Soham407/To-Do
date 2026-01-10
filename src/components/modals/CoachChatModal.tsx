@@ -13,8 +13,8 @@ import {
   Animated,
   Dimensions,
   Image,
+  Modal,
 } from "react-native";
-import SafeModal from "../common/SafeModal";
 import {
   X,
   Send,
@@ -428,106 +428,114 @@ const CoachChatModal: React.FC<Props> = ({
   };
 
   return (
-    <SafeModal
+    <Modal
       visible={isOpen}
       animationType="slide"
-      fullScreen={true}
-      onClose={onClose}
+      onRequestClose={onClose}
+      transparent={false}
+      statusBarTranslucent={true}
     >
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.coachAvatar}>
-              <Sparkles size={20} color={theme.onPrimary} />
+      <View style={styles.modalWrapper}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <View style={styles.coachAvatar}>
+                <Sparkles size={20} color={theme.onPrimary} />
+              </View>
+              <View>
+                <Text style={styles.headerTitle}>Goal Coach</Text>
+                <Text style={styles.headerSubtitle}>
+                  Your AI accountability buddy
+                </Text>
+              </View>
             </View>
-            <View>
-              <Text style={styles.headerTitle}>Goal Coach</Text>
-              <Text style={styles.headerSubtitle}>
-                Your AI accountability buddy
-              </Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <X size={24} color={theme.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Messages */}
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            ListFooterComponent={
+              isTyping ? <TypingIndicator styles={styles} /> : null
+            }
+          />
+
+          {/* Quick Suggestions */}
+          {showSuggestions && messages.length <= 1 && (
+            <View style={styles.suggestionsContainer}>
+              {QUICK_SUGGESTIONS.map((suggestion) => {
+                const Icon = suggestion.icon;
+                return (
+                  <TouchableOpacity
+                    key={suggestion.id}
+                    style={styles.suggestionChip}
+                    onPress={() => handleSend(suggestion.text)}
+                  >
+                    <Icon size={14} color={theme.primary} />
+                    <Text style={styles.suggestionText}>{suggestion.text}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <X size={24} color={theme.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
+          )}
 
-        {/* Messages */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          ListFooterComponent={
-            isTyping ? <TypingIndicator styles={styles} /> : null
-          }
-        />
-
-        {/* Quick Suggestions */}
-        {showSuggestions && messages.length <= 1 && (
-          <View style={styles.suggestionsContainer}>
-            {QUICK_SUGGESTIONS.map((suggestion) => {
-              const Icon = suggestion.icon;
-              return (
-                <TouchableOpacity
-                  key={suggestion.id}
-                  style={styles.suggestionChip}
-                  onPress={() => handleSend(suggestion.text)}
-                >
-                  <Icon size={14} color={theme.primary} />
-                  <Text style={styles.suggestionText}>{suggestion.text}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Input */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
-        >
-          <View style={styles.inputWrapper}>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                value={inputValue}
-                onChangeText={setInputValue}
-                placeholder="Ask me anything..."
-                placeholderTextColor={theme.onSurfaceVariant + "80"}
-                onSubmitEditing={() => !isTyping && handleSend(inputValue)}
-                multiline
-                maxLength={500}
-                accessibilityLabel="Type your message to the coach"
-                accessibilityHint="Send a message by tapping the send button"
-              />
-              <TouchableOpacity
-                onPress={() => handleSend(inputValue)}
-                disabled={!inputValue.trim() || isTyping}
-                style={[
-                  styles.sendBtn,
-                  (!inputValue.trim() || isTyping) && styles.sendBtnDisabled,
-                ]}
-              >
-                <Send
-                  size={20}
-                  color={
-                    inputValue.trim() ? theme.onPrimary : theme.onSurfaceVariant
-                  }
+          {/* Input */}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+          >
+            <View style={styles.inputWrapper}>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={inputValue}
+                  onChangeText={setInputValue}
+                  placeholder="Ask me anything..."
+                  placeholderTextColor={theme.onSurfaceVariant + "80"}
+                  onSubmitEditing={() => !isTyping && handleSend(inputValue)}
+                  multiline
+                  maxLength={500}
+                  accessibilityLabel="Type your message to the coach"
+                  accessibilityHint="Send a message by tapping the send button"
                 />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleSend(inputValue)}
+                  disabled={!inputValue.trim() || isTyping}
+                  style={[
+                    styles.sendBtn,
+                    (!inputValue.trim() || isTyping) && styles.sendBtnDisabled,
+                  ]}
+                >
+                  <Send
+                    size={20}
+                    color={
+                      inputValue.trim()
+                        ? theme.onPrimary
+                        : theme.onSurfaceVariant
+                    }
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </View>
-    </SafeModal>
+    </Modal>
   );
 };
 
 const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
+    modalWrapper: {
+      flex: 1,
+    },
     container: {
       flex: 1,
       backgroundColor: theme.surfaceContainerLow,

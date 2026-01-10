@@ -10,9 +10,10 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
+  Modal,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import SafeModal from "../common/SafeModal";
 import { useTheme } from "../../context/ThemeContext";
 import { Priority } from "../../types";
 import {
@@ -158,296 +159,324 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
   }, [isOpen]);
 
   return (
-    <SafeModal
+    <Modal
       visible={isOpen}
       animationType="fade"
-      onClose={onClose}
-      bottomSheet
+      transparent={true}
+      statusBarTranslucent={true}
+      onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardView}
-      >
-        <Animated.View
-          style={[styles.container, { transform: [{ scale: scaleAnim }] }]}
+      <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardView}
         >
-          <View style={styles.header}>
-            <Text style={styles.title}>New Task</Text>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeBtn}
-              accessibilityLabel="Close modal"
-              accessibilityRole="button"
-            >
-              <X size={24} color={theme.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
+          <TouchableWithoutFeedback onPress={onClose}>
+            <View style={styles.backdropTouchable} />
+          </TouchableWithoutFeedback>
+          <Animated.View
+            style={[styles.container, { transform: [{ scale: scaleAnim }] }]}
+          >
+            <View style={styles.header}>
+              <Text style={styles.title}>New Task</Text>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                accessibilityLabel="Close modal"
+                accessibilityRole="button"
+              >
+                <X size={24} color={theme.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.inputContainer}>
-            <TextInput
-              ref={inputRef}
-              style={styles.input}
-              placeholder={title ? "" : placeholders[placeholderIndex]}
-              placeholderTextColor={theme.onSurfaceVariant}
-              value={title}
-              onChangeText={setTitle}
-              onSubmitEditing={handleSave}
-            />
-          </View>
+            <View style={styles.inputContainer}>
+              <TextInput
+                ref={inputRef}
+                style={styles.input}
+                placeholder={title ? "" : placeholders[placeholderIndex]}
+                placeholderTextColor={theme.onSurfaceVariant}
+                value={title}
+                onChangeText={setTitle}
+                onSubmitEditing={handleSave}
+              />
+            </View>
 
-          <View style={styles.optionsRow}>
-            {/* Due Date Section */}
-            <View style={styles.optionGroup}>
-              <Text style={styles.optionLabel}>Due Date</Text>
-              <View style={styles.chipsContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.chip,
-                    dateOption === "Today" && {
-                      backgroundColor: theme.primaryContainer,
-                    },
-                  ]}
-                  onPress={() => setDateOption("Today")}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: dateOption === "Today" }}
-                  accessibilityLabel="Set due date to today"
-                >
-                  <Text
+            <View style={styles.optionsRow}>
+              {/* Due Date Section */}
+              <View style={styles.optionGroup}>
+                <Text style={styles.optionLabel}>Due Date</Text>
+                <View style={styles.chipsContainer}>
+                  <TouchableOpacity
                     style={[
-                      styles.chipText,
+                      styles.chip,
                       dateOption === "Today" && {
-                        color: theme.onPrimaryContainer,
+                        backgroundColor: theme.primaryContainer,
                       },
                     ]}
+                    onPress={() => setDateOption("Today")}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: dateOption === "Today" }}
+                    accessibilityLabel="Set due date to today"
                   >
-                    Today
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.chip,
-                    dateOption === "Tomorrow" && {
-                      backgroundColor: theme.primaryContainer,
-                    },
-                  ]}
-                  onPress={() => setDateOption("Tomorrow")}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: dateOption === "Tomorrow" }}
-                  accessibilityLabel="Set due date to tomorrow"
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      dateOption === "Tomorrow" && {
-                        color: theme.onPrimaryContainer,
-                      },
-                    ]}
-                  >
-                    Tomorrow
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.chip,
-                    dateOption === "Pick" && {
-                      backgroundColor: theme.primaryContainer,
-                    },
-                  ]}
-                  onPress={() => {
-                    setDateOption("Pick");
-                    setIsCalendarOpen(true);
-                    Keyboard.dismiss();
-                  }}
-                >
-                  <CalendarIcon
-                    size={14}
-                    color={
-                      dateOption === "Pick"
-                        ? theme.onPrimaryContainer
-                        : theme.onSurfaceVariant
-                    }
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text
-                    style={[
-                      styles.chipText,
-                      dateOption === "Pick" && {
-                        color: theme.onPrimaryContainer,
-                      },
-                    ]}
-                  >
-                    {dateOption === "Pick" &&
-                    customDate !== getLocalDateString()
-                      ? customDate
-                      : "Pick Date"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          <View style={[styles.optionsRow, { marginTop: 16 }]}>
-            {/* Priority Section */}
-            <View style={styles.optionGroup}>
-              <Text style={styles.optionLabel}>Priority</Text>
-              <View style={styles.chipsContainer}>
-                {[Priority.LOW, Priority.MEDIUM, Priority.HIGH].map((p) => {
-                  const isSelected = priority === p;
-                  const color = getPriorityColor(p);
-                  return (
-                    <TouchableOpacity
-                      key={p}
+                    <Text
                       style={[
-                        styles.chip,
-                        isSelected && {
-                          backgroundColor: color + "20",
-                          borderColor: color,
-                          borderWidth: 1,
-                        }, // Light tint
-                      ]}
-                      onPress={() => setPriority(p)}
-                    >
-                      {isSelected && (
-                        <Flag
-                          size={14}
-                          color={color}
-                          style={{ marginRight: 4 }}
-                          fill={color}
-                        />
-                      )}
-                      <Text
-                        style={[
-                          styles.chipText,
-                          isSelected && { color: color, fontWeight: "600" },
-                        ]}
-                      >
-                        {p}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          </View>
-
-          <View style={[styles.optionsRow, { marginTop: 16 }]}>
-            {/* Reminder Section (Simplified for MVP: Quick Slots) */}
-            <View style={styles.optionGroup}>
-              <Text style={styles.optionLabel}>Due Time / Reminder</Text>
-              <View style={styles.chipsContainer}>
-                {(
-                  ["None", "Morning", "Afternoon", "Evening", "Custom"] as const
-                ).map((r) => {
-                  const isSelected = reminderOption === r;
-                  return (
-                    <TouchableOpacity
-                      key={r}
-                      style={[
-                        styles.chip,
-                        isSelected && {
-                          backgroundColor: theme.secondaryContainer,
-                          borderColor: theme.secondary,
+                        styles.chipText,
+                        dateOption === "Today" && {
+                          color: theme.onPrimaryContainer,
                         },
                       ]}
-                      onPress={() => {
-                        setReminderOption(r);
-                        if (r === "Custom") {
-                          setShowTimePicker(true);
-                        }
-                      }}
                     >
-                      {r === "Custom" && (
-                        <Clock
-                          size={14}
-                          color={
-                            isSelected
-                              ? theme.onSecondaryContainer
-                              : theme.onSurfaceVariant
-                          }
-                          style={{ marginRight: 4 }}
-                        />
-                      )}
-                      <Text
-                        style={[
-                          styles.chipText,
-                          isSelected && {
-                            color: theme.onSecondaryContainer,
-                            fontWeight: "600",
-                          },
-                        ]}
-                      >
-                        {r === "Custom" && reminderOption === "Custom"
-                          ? customTime.toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : r}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                      Today
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.chip,
+                      dateOption === "Tomorrow" && {
+                        backgroundColor: theme.primaryContainer,
+                      },
+                    ]}
+                    onPress={() => setDateOption("Tomorrow")}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: dateOption === "Tomorrow" }}
+                    accessibilityLabel="Set due date to tomorrow"
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        dateOption === "Tomorrow" && {
+                          color: theme.onPrimaryContainer,
+                        },
+                      ]}
+                    >
+                      Tomorrow
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.chip,
+                      dateOption === "Pick" && {
+                        backgroundColor: theme.primaryContainer,
+                      },
+                    ]}
+                    onPress={() => {
+                      setDateOption("Pick");
+                      setIsCalendarOpen(true);
+                      Keyboard.dismiss();
+                    }}
+                  >
+                    <CalendarIcon
+                      size={14}
+                      color={
+                        dateOption === "Pick"
+                          ? theme.onPrimaryContainer
+                          : theme.onSurfaceVariant
+                      }
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text
+                      style={[
+                        styles.chipText,
+                        dateOption === "Pick" && {
+                          color: theme.onPrimaryContainer,
+                        },
+                      ]}
+                    >
+                      {dateOption === "Pick" &&
+                      customDate !== getLocalDateString()
+                        ? customDate
+                        : "Pick Date"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
 
-          {showTimePicker && (
-            <DateTimePicker
-              value={customTime}
-              mode="time"
-              is24Hour={false}
-              display="default"
-              onChange={(event, date) => {
-                setShowTimePicker(Platform.OS === "ios");
-                if (event.type === "set" && date) {
-                  setCustomTime(date);
-                  setReminderOption("Custom");
-                }
-              }}
-            />
-          )}
+            <View style={[styles.optionsRow, { marginTop: 16 }]}>
+              {/* Priority Section */}
+              <View style={styles.optionGroup}>
+                <Text style={styles.optionLabel}>Priority</Text>
+                <View style={styles.chipsContainer}>
+                  {[Priority.LOW, Priority.MEDIUM, Priority.HIGH].map((p) => {
+                    const isSelected = priority === p;
+                    const color = getPriorityColor(p);
+                    return (
+                      <TouchableOpacity
+                        key={p}
+                        style={[
+                          styles.chip,
+                          isSelected && {
+                            backgroundColor: color + "20",
+                            borderColor: color,
+                            borderWidth: 1,
+                          }, // Light tint
+                        ]}
+                        onPress={() => setPriority(p)}
+                      >
+                        {isSelected && (
+                          <Flag
+                            size={14}
+                            color={color}
+                            style={{ marginRight: 4 }}
+                            fill={color}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            styles.chipText,
+                            isSelected && { color: color, fontWeight: "600" },
+                          ]}
+                        >
+                          {p}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
 
-          <TouchableOpacity
-            style={[styles.saveButton, !title.trim() && styles.disabledButton]}
-            onPress={handleSave}
-            disabled={!title.trim()}
-          >
-            <Text style={styles.saveButtonText}>Create Task</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </KeyboardAvoidingView>
+            <View style={[styles.optionsRow, { marginTop: 16 }]}>
+              {/* Reminder Section (Simplified for MVP: Quick Slots) */}
+              <View style={styles.optionGroup}>
+                <Text style={styles.optionLabel}>Due Time / Reminder</Text>
+                <View style={styles.chipsContainer}>
+                  {(
+                    [
+                      "None",
+                      "Morning",
+                      "Afternoon",
+                      "Evening",
+                      "Custom",
+                    ] as const
+                  ).map((r) => {
+                    const isSelected = reminderOption === r;
+                    return (
+                      <TouchableOpacity
+                        key={r}
+                        style={[
+                          styles.chip,
+                          isSelected && {
+                            backgroundColor: theme.secondaryContainer,
+                            borderColor: theme.secondary,
+                          },
+                        ]}
+                        onPress={() => {
+                          setReminderOption(r);
+                          if (r === "Custom") {
+                            setShowTimePicker(true);
+                          }
+                        }}
+                      >
+                        {r === "Custom" && (
+                          <Clock
+                            size={14}
+                            color={
+                              isSelected
+                                ? theme.onSecondaryContainer
+                                : theme.onSurfaceVariant
+                            }
+                            style={{ marginRight: 4 }}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            styles.chipText,
+                            isSelected && {
+                              color: theme.onSecondaryContainer,
+                              fontWeight: "600",
+                            },
+                          ]}
+                        >
+                          {r === "Custom" && reminderOption === "Custom"
+                            ? customTime.toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : r}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
 
-      {/* Nested Calendar Modal for date picking */}
-      {isCalendarOpen && (
-        <CalendarModal
-          isOpen={isCalendarOpen}
-          onClose={() => setIsCalendarOpen(false)}
-          selectedDate={customDate}
-          onSelectDate={(date) => {
-            setCustomDate(date);
-            setDateOption("Pick");
-            setIsCalendarOpen(false);
-            // Re-focus input if needed, or leave as is
-          }}
-        />
-      )}
-    </SafeModal>
+            {showTimePicker && (
+              <DateTimePicker
+                value={customTime}
+                mode="time"
+                is24Hour={false}
+                display="default"
+                onChange={(event, date) => {
+                  setShowTimePicker(Platform.OS === "ios");
+                  if (event.type === "set" && date) {
+                    setCustomTime(date);
+                    setReminderOption("Custom");
+                  }
+                }}
+              />
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                !title.trim() && styles.disabledButton,
+              ]}
+              onPress={handleSave}
+              disabled={!title.trim()}
+            >
+              <Text style={styles.saveButtonText}>Create Task</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </KeyboardAvoidingView>
+
+        {/* Nested Calendar Modal for date picking */}
+        {isCalendarOpen && (
+          <CalendarModal
+            isOpen={isCalendarOpen}
+            onClose={() => setIsCalendarOpen(false)}
+            selectedDate={customDate}
+            onSelectDate={(date) => {
+              setCustomDate(date);
+              setDateOption("Pick");
+              setIsCalendarOpen(false);
+              // Re-focus input if needed, or leave as is
+            }}
+          />
+        )}
+      </View>
+    </Modal>
   );
 };
 
 const getStyles = (theme: MD3Theme, bottomInset: number) =>
   StyleSheet.create({
+    modalBackdrop: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: Dimensions.get("window").width,
+      height: Dimensions.get("window").height,
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      zIndex: 9999,
+    },
+    backdropTouchable: {
+      flex: 1,
+    },
     keyboardView: {
       flex: 1,
       justifyContent: "flex-end", // Keep content at bottom within bottomSheet
     },
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      // Backdrop is now transparent since SafeModal provides the semi-transparent background
+
       zIndex: Z_INDEX.MODAL_BACKDROP,
     },
     container: {
+      width: "100%",
       backgroundColor: theme.surfaceContainerHigh,
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
