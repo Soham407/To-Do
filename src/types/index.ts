@@ -81,8 +81,9 @@ export interface List {
   id: string;
   name: string;
   icon: string; // Emoji icon
-  color: string; // Hex color
-  order: number;
+  color?: string; // Hex color
+  order?: number;
+  isDefault?: boolean;
 }
 
 // Goal status for archiving/completing
@@ -192,9 +193,44 @@ export const GOAL_TEMPLATES: GoalTemplate[] = [
 
 // Default Lists
 export const DEFAULT_LISTS: List[] = [
-  { id: "health", name: "Health", icon: "💪", color: "#4CAF50", order: 0 },
-  { id: "learning", name: "Learning", icon: "📚", color: "#2196F3", order: 1 },
-  { id: "wellness", name: "Wellness", icon: "🧘", color: "#9C27B0", order: 2 },
-  { id: "work", name: "Work", icon: "💼", color: "#FF9800", order: 3 },
-  { id: "personal", name: "Personal", icon: "⭐", color: "#E91E63", order: 4 },
+  {
+    id: "health",
+    name: "Health",
+    icon: "💪",
+    color: "#4CAF50",
+    order: 0,
+    isDefault: true,
+  },
+  {
+    id: "learning",
+    name: "Learning",
+    icon: "📚",
+    color: "#2196F3",
+    order: 1,
+    isDefault: true,
+  },
+  {
+    id: "wellness",
+    name: "Wellness",
+    icon: "🧘",
+    color: "#9C27B0",
+    order: 2,
+    isDefault: true,
+  },
+  {
+    id: "work",
+    name: "Work",
+    icon: "💼",
+    color: "#FF9800",
+    order: 3,
+    isDefault: true,
+  },
+  {
+    id: "personal",
+    name: "Personal",
+    icon: "⭐",
+    color: "#E91E63",
+    order: 4,
+    isDefault: true,
+  },
 ];
