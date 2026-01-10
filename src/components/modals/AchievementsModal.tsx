@@ -1,390 +1,256 @@
-import React, { useMemo, useRef, useEffect } from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  Animated,
+  ScrollView,
+  Image,
   Dimensions,
   Modal,
+  FlatList,
 } from "react-native";
-import {
-  X,
-  Trophy,
-  Zap,
-  Flame,
-  Target,
-  Star,
-  Lock,
-  ChevronRight,
-} from "lucide-react-native";
+// import { FlashList } from "@shopify/flash-list"; // Removed
+import { Trophy, Award, Star, Zap, Flame, X, Lock } from "lucide-react-native";
 import { useTheme } from "../../context/ThemeContext";
-import { MD3Theme, Fonts } from "../../config/theme";
-import { DailyTask, Agenda } from "../../types";
-import {
-  UserStats,
-  Achievement,
-  ACHIEVEMENTS,
-  buildUserStats,
-  getLevelProgress,
-  getLevelTitle,
-  formatXP,
-  checkNewAchievements,
-} from "../../utils/gamification";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+import { Fonts, MD3Theme } from "../../config/theme";
+import { DailyTask } from "../../types";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   tasks: DailyTask[];
-  agendas: Agenda[];
-  savedStats?: Partial<UserStats>;
-  onStatsUpdate?: (stats: UserStats) => void;
 }
 
-// Animated XP bar component
-const XPProgressBar = ({
-  progress,
-  theme,
-}: {
-  progress: number;
-  theme: MD3Theme;
-}) => {
-  const widthAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(widthAnim, {
-      toValue: progress,
-      duration: 1000,
-      useNativeDriver: false,
-    }).start();
-  }, [progress]);
-
-  return (
-    <View style={styles(theme).xpBarTrack}>
-      <Animated.View
-        style={[
-          styles(theme).xpBarFill,
-          {
-            width: widthAnim.interpolate({
-              inputRange: [0, 100],
-              outputRange: ["0%", "100%"],
-            }),
-          },
-        ]}
-      />
-    </View>
-  );
-};
-
-// Achievement card component
-const AchievementCard = ({
-  achievement,
-  isUnlocked,
-  theme,
-}: {
-  achievement: Achievement;
-  isUnlocked: boolean;
-  theme: MD3Theme;
-}) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handlePress = () => {
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  return (
-    <Animated.View
-      style={[
-        styles(theme).achievementCard,
-        !isUnlocked && styles(theme).achievementLocked,
-        { transform: [{ scale: scaleAnim }] },
-      ]}
-    >
-      <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
-        <View style={styles(theme).achievementContent}>
-          <View
-            style={[
-              styles(theme).achievementIcon,
-              isUnlocked && { backgroundColor: theme.primaryContainer },
-            ]}
-          >
-            {isUnlocked ? (
-              <Text style={{ fontSize: 24 }}>{achievement.icon}</Text>
-            ) : (
-              <Lock size={20} color={theme.onSurfaceVariant + "60"} />
-            )}
-          </View>
-          <View style={styles(theme).achievementInfo}>
-            <Text
-              style={[
-                styles(theme).achievementTitle,
-                !isUnlocked && { color: theme.onSurfaceVariant + "80" },
-              ]}
-            >
-              {achievement.title}
-            </Text>
-            <Text style={styles(theme).achievementDesc}>
-              {achievement.description}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-};
-
-// Stat box component
-const StatBox = ({
-  icon,
-  value,
-  label,
-  color,
-  theme,
-}: {
-  icon: React.ReactNode;
-  value: string | number;
-  label: string;
+interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: any;
   color: string;
-  theme: MD3Theme;
-}) => (
-  <View style={styles(theme).statBox}>
-    <View style={[styles(theme).statIcon, { backgroundColor: color + "20" }]}>
-      {icon}
-    </View>
-    <Text style={styles(theme).statValue}>{value}</Text>
-    <Text style={styles(theme).statLabel}>{label}</Text>
-  </View>
-);
+  condition: (tasks: DailyTask[]) => boolean;
+  progress: (tasks: DailyTask[]) => number;
+  total: number;
+}
 
-const AchievementsModal: React.FC<Props> = ({
-  isOpen,
-  onClose,
-  tasks,
-  agendas,
-  savedStats,
-  onStatsUpdate,
-}) => {
+const ACHIEVEMENTS: Achievement[] = [
+  {
+    id: "first_win",
+    title: "First Win",
+    description: "Complete your first goal",
+    icon: Trophy,
+    color: "#FFD700", // Gold
+    condition: (tasks) => tasks.some((t) => t.status === "COMPLETED"),
+    progress: (tasks) => (tasks.some((t) => t.status === "COMPLETED") ? 1 : 0),
+    total: 1,
+  },
+  {
+    id: "hat_trick",
+    title: "Hat Trick",
+    description: "Complete 3 goals in a single day",
+    icon: Star,
+    color: "#FF6347", // Tomato
+    condition: (tasks) => {
+      const dayCounts = tasks.reduce((acc, t) => {
+        if (t.status === "COMPLETED") {
+          acc[t.scheduledDate] = (acc[t.scheduledDate] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+      return Object.values(dayCounts).some((count) => count >= 3);
+    },
+    progress: (tasks) => {
+      const dayCounts = tasks.reduce((acc, t) => {
+        if (t.status === "COMPLETED") {
+          acc[t.scheduledDate] = (acc[t.scheduledDate] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+      const max = Math.max(0, ...Object.values(dayCounts));
+      return Math.min(max, 3);
+    },
+    total: 3,
+  },
+  {
+    id: "week_warrior",
+    title: "Week Warrior",
+    description: "Complete 20 goals in a week",
+    icon: Zap,
+    color: "#00BFFF", // Deep Sky Blue
+    condition: (tasks) =>
+      tasks.filter((t) => t.status === "COMPLETED").length >= 20, // Simplified for demo
+    progress: (tasks) =>
+      Math.min(tasks.filter((t) => t.status === "COMPLETED").length, 20),
+    total: 20,
+  },
+  {
+    id: "streak_master",
+    title: "Streak Master",
+    description: "Maintain a specific goal streak for 7 days",
+    icon: Flame,
+    color: "#FF4500", // Orange Red
+    condition: (tasks) => false, // Placeholder logic
+    progress: (tasks) => 0, // Placeholder
+    total: 7,
+  },
+  {
+    id: "early_bird",
+    title: "Early Bird",
+    description: "Complete a goal before 9 AM",
+    icon: Award,
+    color: "#32CD32", // Lime Green
+    condition: (tasks) => false, // Needs timestamp logic
+    progress: (tasks) => 0,
+    total: 1,
+  },
+];
+
+const AchievementsModal: React.FC<Props> = ({ isOpen, onClose, tasks }) => {
   const { theme } = useTheme();
-  const s = useMemo(() => styles(theme), [theme]);
+  const styles = useMemo(() => getStyles(theme), [theme]);
 
-  // Build current stats
-  const stats = useMemo(() => {
-    return buildUserStats(tasks, agendas, savedStats);
-  }, [tasks, agendas, savedStats]);
+  // Calculate total points or level based on unlocked achievements
+  const unlockedCount = ACHIEVEMENTS.filter((a) => a.condition(tasks)).length;
+  const totalCount = ACHIEVEMENTS.length;
+  const progressPercent = Math.round((unlockedCount / totalCount) * 100);
 
-  // Check for new achievements
-  const unlockedAchievements = useMemo(() => {
-    const newlyUnlocked = checkNewAchievements(stats, tasks, agendas);
-    // Return all unlocked (existing + new)
-    const allUnlockedIds = new Set([
-      ...stats.achievements,
-      ...newlyUnlocked.map((a) => a.id),
-    ]);
-    return allUnlockedIds;
-  }, [stats, tasks, agendas]);
+  const renderItem = ({ item }: { item: Achievement }) => {
+    const isUnlocked = item.condition(tasks);
+    const currentProgress = item.progress(tasks);
+    const Icon = item.icon;
 
-  // Level progress
-  const levelProgress = useMemo(
-    () => getLevelProgress(stats.totalXP),
-    [stats.totalXP]
-  );
-  const levelTitle = useMemo(() => getLevelTitle(stats.level), [stats.level]);
-
-  // Group achievements by category
-  const groupedAchievements = useMemo(() => {
-    const groups: Record<string, Achievement[]> = {
-      streak: [],
-      completion: [],
-      consistency: [],
-      special: [],
-    };
-    ACHIEVEMENTS.forEach((a) => {
-      groups[a.category].push(a);
-    });
-    return groups;
-  }, []);
-
-  // Notify parent of stat updates
-  useEffect(() => {
-    if (onStatsUpdate && isOpen) {
-      const updatedStats = {
-        ...stats,
-        achievements: Array.from(unlockedAchievements),
-      };
-      onStatsUpdate(updatedStats);
-    }
-  }, [isOpen, unlockedAchievements]);
+    return (
+      <View
+        style={[
+          styles.card,
+          !isUnlocked && styles.cardLocked,
+          isUnlocked && { borderColor: item.color + "40" },
+        ]}
+      >
+        <View
+          style={[
+            styles.iconBox,
+            {
+              backgroundColor: isUnlocked
+                ? item.color + "20"
+                : theme.surfaceContainerHigh,
+            },
+          ]}
+        >
+          {isUnlocked ? (
+            <Icon size={24} color={item.color} />
+          ) : (
+            <Lock size={20} color={theme.onSurfaceVariant} />
+          )}
+        </View>
+        <View style={styles.cardContent}>
+          <Text style={[styles.cardTitle, !isUnlocked && styles.textLocked]}>
+            {item.title}
+          </Text>
+          <Text style={styles.cardDesc}>{item.description}</Text>
+          <View style={styles.progressBarBg}>
+            <View
+              style={[
+                styles.progressBarFill,
+                {
+                  width: `${(currentProgress / item.total) * 100}%`,
+                  backgroundColor: isUnlocked
+                    ? item.color
+                    : theme.onSurfaceVariant,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {currentProgress} / {item.total}
+          </Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <Modal
       visible={isOpen}
       animationType="slide"
-      transparent={false}
-      statusBarTranslucent={true}
       onRequestClose={onClose}
+      transparent={true}
+      statusBarTranslucent={true}
     >
-      <View style={styles.modalWrapper}>
-        <View style={s.container}>
-          {/* Header */}
-          <View style={s.header}>
-            <View style={s.headerLeft}>
-              <Trophy size={24} color={theme.primary} />
-              <Text style={s.headerTitle}>Achievements</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={s.closeBtn}>
-              <X size={24} color={theme.onSurfaceVariant} />
-            </TouchableOpacity>
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: Dimensions.get("window").width,
+          height: Dimensions.get("window").height,
+          backgroundColor: theme.surface, // Full screen opaque background
+        }}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Trophy size={28} color={theme.primary} />
+            <Text style={styles.headerTitle}>Achievements</Text>
           </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={s.scrollContent}
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeBtn}
+            accessibilityLabel="Close achievements"
+            accessibilityRole="button"
           >
-            {/* Level Card */}
-            <View style={s.levelCard}>
-              <View style={s.levelHeader}>
-                <View style={s.levelBadge}>
-                  <Text style={s.levelNumber}>{stats.level}</Text>
-                </View>
-                <View style={s.levelInfo}>
-                  <Text style={s.levelTitle}>{levelTitle}</Text>
-                  <Text style={s.xpText}>
-                    {formatXP(stats.totalXP)} XP Total
-                  </Text>
-                </View>
-                <View style={s.xpBadge}>
-                  <Zap size={14} color={theme.primary} />
-                  <Text style={s.xpBadgeText}>{levelProgress.percentage}%</Text>
-                </View>
-              </View>
-              <View style={s.levelProgressSection}>
-                <XPProgressBar
-                  progress={levelProgress.percentage}
-                  theme={theme}
-                />
-                <Text style={s.levelProgressText}>
-                  {levelProgress.current} / {levelProgress.required} XP to Level{" "}
-                  {stats.level + 1}
-                </Text>
-              </View>
-            </View>
+            <X size={24} color={theme.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
 
-            {/* Stats Grid */}
-            <View style={s.statsGrid}>
-              <StatBox
-                icon={<Flame size={20} color={theme.error} />}
-                value={stats.currentStreak}
-                label="Current Streak"
-                color={theme.error}
-                theme={theme}
-              />
-              <StatBox
-                icon={<Star size={20} color={theme.tertiary} />}
-                value={stats.longestStreak}
-                label="Best Streak"
-                color={theme.tertiary}
-                theme={theme}
-              />
-              <StatBox
-                icon={<Target size={20} color={theme.primary} />}
-                value={stats.tasksCompleted}
-                label="Tasks Done"
-                color={theme.primary}
-                theme={theme}
-              />
-              <StatBox
-                icon={<Trophy size={20} color={theme.secondary} />}
-                value={unlockedAchievements.size}
-                label="Achievements"
-                color={theme.secondary}
-                theme={theme}
+        {/* Level Banner */}
+        <View style={styles.banner}>
+          <View style={styles.bannerContent}>
+            <Text style={styles.levelText}>
+              Level {Math.floor(unlockedCount / 2) + 1}
+            </Text>
+            <Text style={styles.progressSummary}>
+              {unlockedCount} of {totalCount} Unlocked
+            </Text>
+            <View style={styles.mainProgressBarBg}>
+              <View
+                style={[
+                  styles.mainProgressBarFill,
+                  { width: `${progressPercent}%` },
+                ]}
               />
             </View>
+          </View>
+          <Trophy
+            size={80}
+            color={theme.primary + "20"}
+            style={styles.bgIcon}
+          />
+        </View>
 
-            {/* Achievement Sections */}
-            {Object.entries(groupedAchievements).map(
-              ([category, achievements]) => (
-                <View key={category} style={s.achievementSection}>
-                  <View style={s.sectionHeader}>
-                    <Text style={s.sectionTitle}>
-                      {category === "streak"
-                        ? "🔥 Streak Masters"
-                        : category === "completion"
-                        ? "✅ Task Champions"
-                        : category === "consistency"
-                        ? "💎 Consistency Kings"
-                        : "⭐ Special Badges"}
-                    </Text>
-                    <Text style={s.sectionCount}>
-                      {
-                        achievements.filter((a) =>
-                          unlockedAchievements.has(a.id)
-                        ).length
-                      }
-                      /{achievements.length}
-                    </Text>
-                  </View>
-                  <View style={s.achievementGrid}>
-                    {achievements.map((achievement) => (
-                      <AchievementCard
-                        key={achievement.id}
-                        achievement={achievement}
-                        isUnlocked={unlockedAchievements.has(achievement.id)}
-                        theme={theme}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )
-            )}
-
-            {/* Motivational Footer */}
-            <View style={s.footer}>
-              <Text style={s.footerText}>
-                🎯 Keep completing tasks to unlock more achievements and level
-                up!
-              </Text>
-            </View>
-          </ScrollView>
+        <View style={styles.listContainer}>
+          <FlatList
+            data={ACHIEVEMENTS}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+          />
         </View>
       </View>
     </Modal>
   );
 };
 
-const styles = (theme: MD3Theme) =>
+const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
-    modalWrapper: {
-      flex: 1,
-    },
-    container: {
-      flex: 1,
-      backgroundColor: theme.background,
-    },
     header: {
       flexDirection: "row",
-      alignItems: "center",
       justifyContent: "space-between",
+      alignItems: "center",
+      paddingTop: 60, // Safe area
       paddingHorizontal: 20,
-      paddingTop: 50,
-      paddingBottom: 16,
+      paddingBottom: 20,
       backgroundColor: theme.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.outline + "20",
     },
     headerLeft: {
       flexDirection: "row",
@@ -392,191 +258,129 @@ const styles = (theme: MD3Theme) =>
       gap: 12,
     },
     headerTitle: {
-      fontSize: 22,
+      fontSize: 24,
       fontFamily: Fonts.bold,
       color: theme.onSurface,
     },
     closeBtn: {
       padding: 8,
+      borderRadius: 20,
+      backgroundColor: theme.surfaceContainer,
     },
-    scrollContent: {
+    banner: {
+      marginHorizontal: 20,
+      marginBottom: 20,
+      padding: 20,
+      borderRadius: 24,
+      backgroundColor: theme.primaryContainer,
+      overflow: "hidden",
+      position: "relative",
+    },
+    bannerContent: {
+      zIndex: 1,
+    },
+    bgIcon: {
+      position: "absolute",
+      right: -10,
+      bottom: -10,
+      transform: [{ rotate: "-15deg" }],
+    },
+    levelText: {
+      fontSize: 32,
+      fontFamily: Fonts.bold,
+      color: theme.onPrimaryContainer,
+      marginBottom: 4,
+    },
+    progressSummary: {
+      fontSize: 14,
+      fontFamily: Fonts.medium,
+      color: theme.onPrimaryContainer,
+      opacity: 0.8,
+      marginBottom: 12,
+    },
+    mainProgressBarBg: {
+      height: 8,
+      backgroundColor: theme.surface + "40",
+      borderRadius: 4,
+      width: "100%",
+    },
+    mainProgressBarFill: {
+      height: 100,
+      backgroundColor: theme.primary,
+      borderRadius: 4,
+    },
+    listContainer: {
+      flex: 1,
+      backgroundColor: theme.surfaceContainerLow,
+      borderTopLeftRadius: 32,
+      borderTopRightRadius: 32,
+      paddingTop: 8,
+    },
+    listContent: {
       padding: 20,
       paddingBottom: 40,
     },
-    levelCard: {
-      backgroundColor: theme.surfaceContainerHigh,
-      borderRadius: 24,
-      padding: 20,
-      marginBottom: 20,
-    },
-    levelHeader: {
+    card: {
       flexDirection: "row",
-      alignItems: "center",
-      marginBottom: 16,
-    },
-    levelBadge: {
-      width: 56,
-      height: 56,
-      borderRadius: 16,
-      backgroundColor: theme.primary,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    levelNumber: {
-      fontSize: 24,
-      fontFamily: Fonts.bold,
-      color: theme.onPrimary,
-    },
-    levelInfo: {
-      flex: 1,
-      marginLeft: 16,
-    },
-    levelTitle: {
-      fontSize: 20,
-      fontFamily: Fonts.bold,
-      color: theme.onSurface,
-    },
-    xpText: {
-      fontSize: 14,
-      fontFamily: Fonts.regular,
-      color: theme.onSurfaceVariant,
-      marginTop: 2,
-    },
-    xpBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      backgroundColor: theme.primaryContainer,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 20,
-    },
-    xpBadgeText: {
-      fontSize: 14,
-      fontFamily: Fonts.bold,
-      color: theme.primary,
-    },
-    levelProgressSection: {
-      gap: 8,
-    },
-    xpBarTrack: {
-      height: 12,
-      backgroundColor: theme.surfaceVariant,
-      borderRadius: 6,
-      overflow: "hidden",
-    },
-    xpBarFill: {
-      height: "100%",
-      backgroundColor: theme.primary,
-      borderRadius: 6,
-    },
-    levelProgressText: {
-      fontSize: 12,
-      fontFamily: Fonts.regular,
-      color: theme.onSurfaceVariant,
-      textAlign: "center",
-    },
-    statsGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 12,
-      marginBottom: 24,
-    },
-    statBox: {
-      width: (SCREEN_WIDTH - 52) / 2,
-      backgroundColor: theme.surfaceContainerHigh,
-      borderRadius: 16,
+      backgroundColor: theme.surface,
       padding: 16,
-      alignItems: "center",
-    },
-    statIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 12,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 8,
-    },
-    statValue: {
-      fontSize: 24,
-      fontFamily: Fonts.bold,
-      color: theme.onSurface,
-    },
-    statLabel: {
-      fontSize: 12,
-      fontFamily: Fonts.regular,
-      color: theme.onSurfaceVariant,
-      marginTop: 2,
-    },
-    achievementSection: {
-      marginBottom: 24,
-    },
-    sectionHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 12,
-    },
-    sectionTitle: {
-      fontSize: 16,
-      fontFamily: Fonts.bold,
-      color: theme.onSurface,
-    },
-    sectionCount: {
-      fontSize: 14,
-      fontFamily: Fonts.medium,
-      color: theme.onSurfaceVariant,
-    },
-    achievementGrid: {
-      gap: 10,
-    },
-    achievementCard: {
-      backgroundColor: theme.surfaceContainerHigh,
       borderRadius: 16,
-      padding: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.outline + "10",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
     },
-    achievementLocked: {
-      opacity: 0.6,
-      backgroundColor: theme.surfaceContainer,
+    cardLocked: {
+      opacity: 0.7,
+      backgroundColor: theme.surfaceContainerLow,
+      borderWidth: 0,
     },
-    achievementContent: {
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    achievementIcon: {
+    iconBox: {
       width: 48,
       height: 48,
       borderRadius: 12,
-      backgroundColor: theme.surfaceVariant,
       justifyContent: "center",
       alignItems: "center",
+      marginRight: 16,
     },
-    achievementInfo: {
+    cardContent: {
       flex: 1,
-      marginLeft: 12,
+      justifyContent: "center",
     },
-    achievementTitle: {
-      fontSize: 15,
-      fontFamily: Fonts.medium,
+    cardTitle: {
+      fontSize: 16,
+      fontFamily: Fonts.bold,
       color: theme.onSurface,
+      marginBottom: 4,
     },
-    achievementDesc: {
+    textLocked: {
+      color: theme.onSurfaceVariant,
+    },
+    cardDesc: {
       fontSize: 12,
       fontFamily: Fonts.regular,
       color: theme.onSurfaceVariant,
-      marginTop: 2,
+      marginBottom: 8,
     },
-    footer: {
-      backgroundColor: theme.primaryContainer + "40",
-      borderRadius: 16,
-      padding: 16,
-      alignItems: "center",
+    progressBarBg: {
+      height: 4,
+      backgroundColor: theme.surfaceContainerHigh,
+      borderRadius: 2,
+      marginBottom: 4,
     },
-    footerText: {
-      fontSize: 14,
+    progressBarFill: {
+      height: "100%",
+      borderRadius: 2,
+    },
+    progressText: {
+      fontSize: 10,
       fontFamily: Fonts.medium,
-      color: theme.primary,
-      textAlign: "center",
+      color: theme.onSurfaceVariant,
+      alignSelf: "flex-end",
     },
   });
 

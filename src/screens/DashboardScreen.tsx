@@ -273,6 +273,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           onClose={() => setIsCalendarOpen(false)}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
+          tasks={tasks}
         />
       )}
       {!!settingsAgenda && (

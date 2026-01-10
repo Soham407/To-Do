@@ -445,6 +445,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({
               setIsCalendarOpen(false);
               // Re-focus input if needed, or leave as is
             }}
+            tasks={[]}
           />
         )}
       </View>

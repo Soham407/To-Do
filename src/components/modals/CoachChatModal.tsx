@@ -432,7 +432,7 @@ const CoachChatModal: React.FC<Props> = ({
       visible={isOpen}
       animationType="slide"
       onRequestClose={onClose}
-      transparent={false}
+      transparent={true}
       statusBarTranslucent={true}
     >
       <View style={styles.modalWrapper}>
@@ -534,7 +534,13 @@ const CoachChatModal: React.FC<Props> = ({
 const getStyles = (theme: MD3Theme) =>
   StyleSheet.create({
     modalWrapper: {
-      flex: 1,
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: Dimensions.get("window").width,
+      height: Dimensions.get("window").height,
+      backgroundColor: theme.surfaceContainerLow,
+      zIndex: 9999,
     },
     container: {
       flex: 1,

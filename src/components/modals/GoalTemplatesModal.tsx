@@ -367,6 +367,8 @@ const getStyles = (theme: MD3Theme) =>
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
       maxHeight: "85%",
+      minHeight: 400, // FIX: Ensure visibility
+      width: "100%",
       paddingBottom: Platform.OS === "ios" ? 34 : 24,
     },
     header: {
@@ -417,7 +419,9 @@ const getStyles = (theme: MD3Theme) =>
       color: theme.onPrimaryContainer,
     },
     templatesScroll: {
-      flex: 1,
+      // flex: 1, // REMOVED: Causing collapse in auto-height container
+      flexGrow: 0, // Allow natural growth
+      flexShrink: 1, // Allow shrinking if max-height hit
     },
     templatesGrid: {
       flexDirection: "row",
